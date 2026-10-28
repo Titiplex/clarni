@@ -16,6 +16,7 @@ namespace ml
         std::string diagnostic;
     };
 
+    // Initialiser avant les threads ; ne pas reconfigurer pendant un calcul.
     DeviceInfo initialize_compute(Backend preference = Backend::Auto);
     const DeviceInfo& compute_device();
 }

@@ -103,7 +103,7 @@ namespace
     }
 }
 
-namespace ml::math::gpu
+namespace ml::gpu
 {
     bool compiled() noexcept { return true; }
 

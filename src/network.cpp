@@ -1,134 +1,127 @@
 #include "network.h"
+#include <algorithm>
 #include <cmath>
 #include <numeric>
-#include <random>
-#include <ranges>
+#include <stdexcept>
+#include <utility>
 
-using namespace ml;
-using namespace std;
-
-vector<double> NeuralNetwork::learn(const Dataset& dataset, const size_t max_epochs, size_t batch_size, bool shuffle)
+namespace ml
 {
-    if (layers.empty())
-        throw logic_error("Le reseau ne contient aucune couche");
-
-    if (dataset.empty())
-        throw invalid_argument("Le jeu de donnees est vide");
-
-    if (batch_size <= 0)
-        throw invalid_argument("La taille du groupe doit etre positive");
-
-    batch_size =
-        learning_type == ONLINE ? 1 : learning_type == BATCH ? dataset.size() : min(batch_size, dataset.size());
-
-    for (auto& layer : layers)
-        layer.zero_grad();
-
-    for (const auto& [input, target] : dataset)
+    NeuralNetwork::NeuralNetwork(std::size_t maximum_layers, double rate,
+                                 LearningType type, Error loss, std::uint32_t seed)
+        : layer_nb(maximum_layers), learning_rate(rate), learning_type(type), generator(seed)
     {
-        if (input.size() != layers.front().input_size())
-            throw invalid_argument("Incorrect entry size");
-
-        if (target.size() != layers.back().output_size())
-            throw invalid_argument("Incorrect target size");
+        if (!std::isfinite(rate) || rate <= 0.0) throw std::invalid_argument("Invalid learning rate");
+        if (type != BATCH && type != ONLINE && type != MINI_BATCH && type != AUTO)
+            throw std::invalid_argument("Unknown learning type");
+        switch (loss)
+        {
+        case SIMPLE: error = math::func::simple;
+            loss_value = math::func::simple_loss;
+            break;
+        default: throw std::invalid_argument("Unknown loss");
+        }
+        layers.reserve(layer_nb);
     }
 
-    vector<size_t> order(dataset.size());
-    iota(order.begin(), order.end(), size_t{0});
-
-    vector<double> losses;
-    losses.reserve(max_epochs);
-
-    random_device rd; // obtain a random number from hardware
-    mt19937 eng(rd()); // seed the generator
-
-    // Iterating over epochs
-    for (size_t epoch = 0; epoch < max_epochs; ++epoch)
+    void NeuralNetwork::add_layer(int inputs, int neurons, Layer::Activation type)
     {
-        if (shuffle)
+        if (layers.size() >= layer_nb) throw std::invalid_argument("Declared layer number too small");
+        if (!layers.empty() && layers.back().output_size() != inputs)
+            throw std::invalid_argument("Incompatible adjacent layers");
+        Layer layer(inputs, neurons, type);
+        layer.init_random(generator);
+        layers.push_back(std::move(layer));
+    }
+
+    Layer& NeuralNetwork::get(std::size_t i) { return layers.at(i); }
+    const Layer& NeuralNetwork::get(std::size_t i) const { return layers.at(i); }
+
+    void NeuralNetwork::validate_topology() const
+    {
+        if (layers.empty()) throw std::logic_error("Network has no layers");
+        for (std::size_t i = 1; i < layers.size(); ++i)
+            if (layers[i - 1].output_size() != layers[i].input_size())
+                throw std::invalid_argument("Incompatible adjacent layers");
+    }
+
+    void NeuralNetwork::validate_dataset(const Dataset& dataset) const
+    {
+        validate_topology();
+        if (dataset.empty()) throw std::invalid_argument("Empty dataset");
+        for (const auto& [input,target] : dataset)
         {
-            std::shuffle(order.begin(), order.end(), eng);
+            if (input.size() != static_cast<std::size_t>(layers.front().input_size())
+                || target.size() != static_cast<std::size_t>(layers.back().output_size()))
+                throw std::invalid_argument("Incorrect dataset dimensions");
+            for (double x : input) if (!std::isfinite(x)) throw std::invalid_argument("Non-finite input");
+            for (double y : target) if (!std::isfinite(y)) throw std::invalid_argument("Non-finite target");
         }
-        for (size_t begin = 0; begin < dataset.size();)
+    }
+
+    std::vector<double> NeuralNetwork::learn(const Dataset& dataset, std::size_t max_epochs,
+                                             std::size_t batch_size, bool shuffle)
+    {
+        validate_dataset(dataset);
+        switch (learning_type)
         {
-            // Le dernier groupe peut être plus petit.
-            const std::size_t count =
-                std::min(batch_size, dataset.size() - begin);
-
-            const std::size_t end = begin + count;
-
-            for (auto& layer : layers)
-                layer.zero_grad();
-
-            for (std::size_t p = begin; p < end; ++p)
+        case ONLINE: batch_size = 1;
+            break;
+        case BATCH: batch_size = dataset.size();
+            break;
+        case AUTO:
+            if (batch_size == 0) batch_size = 32;
+            batch_size = std::min(batch_size, dataset.size());
+            break;
+        case MINI_BATCH:
+            if (batch_size == 0) throw std::invalid_argument("Mini-batch size must be positive");
+            batch_size = std::min(batch_size, dataset.size());
+            break;
+        }
+        std::vector<std::size_t> order(dataset.size());
+        std::iota(order.begin(), order.end(), std::size_t{0});
+        std::vector<double> losses;
+        losses.reserve(max_epochs);
+        for (std::size_t epoch = 0; epoch < max_epochs; ++epoch)
+        {
+            if (shuffle) std::shuffle(order.begin(), order.end(), generator);
+            for (std::size_t begin = 0; begin < dataset.size();)
             {
-                const Sample& sample = dataset[order[p]];
-
-                // ---- Propagation avant ----
-
-                math::Vector prediction = math::Vector(sample.input);
-
-                for (auto& layer : layers)
-                    prediction = layer.forward(prediction);
-
-                // ---- Dérivée de la perte ----
-                //
-                // L = 1/2 * somme_k (prediction[k] - target[k])²
-                // dL/dprediction[k] = prediction[k] - target[k]
-
-                math::Vector gradient = error(prediction, math::Vector(sample.target));
-
-                // ---- Rétropropagation ----
-
-                for (auto& layer : std::views::reverse(layers)) gradient = layer.backward(gradient);
+                const auto count = std::min(batch_size, dataset.size() - begin);
+                const auto end = begin + count;
+                for (auto& layer : layers) layer.zero_grad();
+                for (std::size_t p = begin; p < end; ++p)
+                {
+                    const Sample& sample = dataset[order[p]];
+                    math::Vector prediction(sample.input);
+                    for (auto& layer : layers) prediction = layer.forward(prediction);
+                    math::Vector gradient = error(prediction, math::Vector(sample.target));
+                    for (auto it = layers.rbegin(); it != layers.rend(); ++it)
+                        gradient = it->backward(gradient);
+                }
+                for (auto& layer : layers) layer.step(learning_rate, count);
+                begin = end;
             }
-            // Tous les exemples du groupe ont utilisé les mêmes poids.
-            // step() divise les gradients accumulés par count.
-            for (auto& layer : layers)
-                layer.step(learning_rate, count);
-
-            begin = end;
+            losses.push_back(mean_loss(dataset));
         }
-        // Perte mesurée avec les poids obtenus à la fin de l'époque.
-        losses.push_back(mean_loss(dataset));
+        return losses;
     }
-    return losses;
-}
 
-double NeuralNetwork::mean_loss(
-    const Dataset& dataset
-) const
-{
-    if (layers.empty())
-        throw std::logic_error("Le reseau ne contient aucune couche");
-
-    if (dataset.empty())
-        throw std::invalid_argument("Le dataset est vide");
-
-    double total_loss = 0.0;
-
-    for (const auto& [input, target] : dataset)
+    math::Vector NeuralNetwork::output(const std::vector<double>& input) const
     {
-        // Propagation avec les poids actuels, sans modifier les caches.
-        const math::Vector prediction = output(input);
-
-        total_loss += error(
-            prediction,
-            math::Vector(target)
-        ).norm();
+        validate_topology();
+        math::Vector result(input);
+        for (const auto& layer : layers) result = layer.output(result);
+        return result;
     }
 
-    return total_loss / static_cast<double>(dataset.size());
-}
-
-math::Vector NeuralNetwork::output(const vector<double>& input) const
-{
-    auto result = math::Vector(input);
-
-    for (auto& layer : layers)
+    double NeuralNetwork::mean_loss(const Dataset& dataset) const
     {
-        result = layer.output(result);
+        validate_dataset(dataset);
+        double total = 0.0;
+        for (const auto& sample : dataset)
+            total += loss_value(output(sample.input), math::Vector(sample.target));
+        if (!std::isfinite(total)) throw std::overflow_error("Non-finite loss");
+        return total / static_cast<double>(dataset.size());
     }
-
-    return result;
 }

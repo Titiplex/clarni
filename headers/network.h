@@ -1,9 +1,11 @@
 #pragma once
+#include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <random>
 #include <vector>
 #include "layer.h"
 #include "dataset.h"
-#include <functional>
-#include <stdexcept>
 
 namespace ml
 {
@@ -11,55 +13,34 @@ namespace ml
     {
     public:
         enum LearningType { BATCH, ONLINE, MINI_BATCH, AUTO };
+
         enum Error { SIMPLE };
 
     private:
         std::vector<Layer> layers;
-
         std::size_t layer_nb;
         double learning_rate;
         LearningType learning_type;
-        std::function<math::Vector(math::Vector, math::Vector)> error;
+        std::mt19937 generator;
+        std::function<math::Vector(const math::Vector&, const math::Vector&)> error;
+        std::function<double(const math::Vector&, const math::Vector&)> loss_value;
+        void validate_topology() const;
+        void validate_dataset(const Dataset& dataset) const;
 
     public:
-        NeuralNetwork(const std::size_t layer_nb, const double learning_rate, const LearningType learning_type = AUTO, const Error error_type = SIMPLE) :
-            layer_nb(layer_nb),
-            learning_rate(learning_rate),
-            learning_type(learning_type)
-        {
-            layers.reserve(layer_nb);
-
-            switch (error_type)
-            {
-            default:
-                error = math::func::simple;
-                break;
-            }
-        }
-
-        void add_layer(
-            const int nb_params,
-            const int layer_size,
-            const Layer::Activation activation_type
-        )
-        {
-            if (layers.size() >= layer_nb) throw std::invalid_argument("Declared layer number too small");
-
-            layers.emplace_back(nb_params, layer_size, activation_type);
-        }
-
-        Layer get(const int i)
-        {
-            return layers[i];
-        }
-
-        Layer operator[](const int i)
-        {
-            return get(i);
-        }
-
-        std::vector<double> learn(const Dataset& dataset, std::size_t max_epochs, std::size_t batch_size = 1,
-                                  bool shuffle = false);
+        NeuralNetwork(std::size_t layer_nb, double learning_rate,
+                      LearningType learning_type = AUTO, Error error_type = SIMPLE,
+                      std::uint32_t seed = 42);
+        void add_layer(int nb_params, int layer_size,
+                       Layer::Activation activation_type = Layer::SIGMOID);
+        Layer& get(std::size_t i);
+        const Layer& get(std::size_t i) const;
+        Layer& operator[](std::size_t i) { return get(i); }
+        const Layer& operator[](std::size_t i) const { return get(i); }
+        // AUTO : taille 0 -> min(32,N). MINI_BATCH exige une taille > 0.
+        // ONLINE et BATCH ignorent la taille explicite.
+        std::vector<double> learn(const Dataset& dataset, std::size_t max_epochs,
+                                  std::size_t batch_size = 0, bool shuffle = false);
         [[nodiscard]] math::Vector output(const std::vector<double>& input) const;
         [[nodiscard]] double mean_loss(const Dataset& dataset) const;
     };

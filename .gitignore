@@ -1,3 +1,5 @@
 cmake-build-debug-visual-studio
 cmake-build-debug
 .idea
+/build*/
+/cmake-build-*/

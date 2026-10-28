@@ -1,4 +1,5 @@
 #pragma once
+#include <cstddef>
 #include <vector>
 
 namespace ml
@@ -7,6 +8,7 @@ namespace ml
     {
         std::vector<double> input, target;
     };
+
     class Dataset
     {
         std::vector<Sample> data;
@@ -33,9 +35,9 @@ namespace ml
         [[nodiscard]] auto begin() const { return data.begin(); }
         [[nodiscard]] auto end() const { return data.end(); }
 
-        Sample operator[](const std::size_t i) const
+        const Sample& operator[](const std::size_t i) const
         {
-            return data[i];
+            return data.at(i);
         }
     };
 }
