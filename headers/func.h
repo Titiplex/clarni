@@ -5,6 +5,9 @@
 
 namespace ml::math::func
 {
+    inline Vector identity(const Vector& input) { return input; }
+    inline Vector identity_derivative(const Vector& input) { return {input.get_dim(), 1.0}; }
+
     inline Vector sigmoid(const Vector& input)
     {
         Vector output(input.get_dim());
@@ -27,6 +30,59 @@ namespace ml::math::func
         Vector output(activations.get_dim());
         for (int i = 0; i < activations.get_dim(); ++i)
             output[i] = activations[i] * (1.0 - activations[i]);
+        return output;
+    }
+
+    inline Vector tanh(const Vector& input)
+    {
+        Vector output(input.get_dim());
+        for (int i = 0; i < input.get_dim(); ++i)
+            output[i] = std::tanh(input[i]);
+        return output;
+    }
+
+    inline Vector tanh_derivative(const Vector& activations)
+    {
+        Vector output(activations.get_dim());
+        for (int i = 0; i < activations.get_dim(); ++i)
+            output[i] = 1 - std::pow(std::tanh(activations[i]), 2);
+        return output;
+    }
+
+    inline Vector relu(const Vector& input)
+    {
+        Vector output(input.get_dim());
+        for (int i = 0; i < input.get_dim(); ++i)
+            output[i] = std::max(input[i], 0.0);
+        return output;
+    }
+
+    inline Vector relu_derivative(const Vector& activations)
+    {
+        Vector output(activations.get_dim());
+        for (int i = 0; i < activations.get_dim(); ++i)
+            output[i] = activations[i] > 0 ? 1.0 : 0.0;
+        return output;
+    }
+
+    inline Vector leaky_relu(const Vector& input)
+    {
+        const double alpha = 0.01;
+        Vector output(input.get_dim());
+        for (int i = 0; i < input.get_dim(); ++i)
+        {
+            const double x = input[i];
+            output[i] = std::max(alpha * x, x);
+        }
+        return output;
+    }
+
+    inline Vector leaky_relu_derivative(const Vector& activations)
+    {
+        const double alpha = 0.01;
+        Vector output(activations.get_dim());
+        for (int i = 0; i < activations.get_dim(); ++i)
+            output[i] = activations[i] > 0 ? 1.0 : alpha;
         return output;
     }
 

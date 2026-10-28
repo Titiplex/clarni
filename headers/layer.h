@@ -10,7 +10,7 @@ namespace ml
     class Layer
     {
     public:
-        enum Activation { SIGMOID };
+        enum Activation { IDENTITY, SIGMOID, TANH, RELU, LEAKY_RELU };
 
     private:
         int nb_params, layer_size;

@@ -30,9 +30,25 @@ namespace ml
     {
         switch (type)
         {
+        case IDENTITY:
+            activation = math::func::identity;
+            derivative = math::func::identity_derivative;
+            break;
         case SIGMOID:
             activation = math::func::sigmoid;
             derivative = math::func::sigmoid_derivative;
+            break;
+        case TANH:
+            activation = math::func::tanh;
+            derivative = math::func::tanh_derivative;
+            break;
+        case RELU:
+            activation = math::func::relu;
+            derivative = math::func::relu_derivative;
+            break;
+        case LEAKY_RELU:
+            activation = math::func::leaky_relu;
+            derivative = math::func::leaky_relu_derivative;
             break;
         default: throw std::invalid_argument("Unknown activation");
         }
