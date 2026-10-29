@@ -2,11 +2,14 @@
 from pathlib import Path
 import argparse
 import json
+import os
 import subprocess
 import sys
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--build", default="build-direct")
+parser.add_argument("--sanitize", action="store_true")
+parser.add_argument("--no-leak-check", action="store_true")
 args = parser.parse_args()
 root = Path(__file__).resolve().parents[1]
 build = root / args.build
@@ -14,10 +17,16 @@ build.mkdir(parents=True, exist_ok=True)
 
 
 def run(command):
-    return subprocess.run(command, cwd=root, text=True, capture_output=True)
+    environment = os.environ.copy()
+    if args.no_leak_check:
+        environment["ASAN_OPTIONS"] = environment.get("ASAN_OPTIONS", "") + ":detect_leaks=0"
+    return subprocess.run(command, cwd=root, text=True, capture_output=True, env=environment)
 
 
 flags = ["-std=c++23", "-O2", "-Wall", "-Wextra", "-Wpedantic", "-Iheaders", "-Itests"]
+if args.sanitize:
+    flags = [flag for flag in flags if flag != "-O2"]
+    flags += ["-O1", "-g", "-fsanitize=address,undefined", "-fno-omit-frame-pointer"]
 objects = []
 for source in sorted((root / "src").glob("*.cpp")) + sorted((root / "src/gpu").glob("*stub.cpp")):
     obj = build / (source.stem + ".o")

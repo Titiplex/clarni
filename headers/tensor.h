@@ -54,6 +54,7 @@ public:
     double sum() const;
     double item() const;
     bool all_finite() const;
+    void synchronize()const;
 };
 struct LossResult {
     Tensor values;   // 1 x B, sum over outputs for each sample.

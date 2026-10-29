@@ -6,12 +6,29 @@
 #include <limits>
 #include <stdexcept>
 #include <string>
+#if defined(ML_USE_CUBLAS)
+#include <cublas_v2.h>
+#endif
 
 namespace ml::gpu::resident {
 namespace {
 std::atomic<std::size_t> allocation_count{0},upload_count{0},download_count{0},upload_bytes{0},download_bytes{0};
 void check(cudaError_t error,const char* what){if(error!=cudaSuccess)throw std::runtime_error(std::string(what)+": "+cudaGetErrorString(error));}
 void select(int device){check(cudaSetDevice(device),"cudaSetDevice");}
+#if defined(ML_USE_CUBLAS)
+void check_blas(cublasStatus_t status,const char* what){if(status!=CUBLAS_STATUS_SUCCESS)throw std::runtime_error(std::string(what)+": cuBLAS status "+std::to_string(static_cast<int>(status)));}
+struct BlasHandle {
+    cublasHandle_t handle=nullptr;
+    int device=-1;
+    ~BlasHandle(){if(handle){cudaSetDevice(device);cublasDestroy(handle);}}
+    cublasHandle_t get(int requested){
+        if(handle&&device!=requested){cudaSetDevice(device);check_blas(cublasDestroy(handle),"cublasDestroy");handle=nullptr;}
+        select(requested);
+        if(!handle){check_blas(cublasCreate(&handle),"cublasCreate");device=requested;check_blas(cublasSetPointerMode(handle,CUBLAS_POINTER_MODE_HOST),"cublasSetPointerMode");}
+        return handle;
+    }
+};
+#endif
 unsigned blocks(std::size_t n){return static_cast<unsigned>((std::min)((n-1)/256+1,std::size_t{65535}));}
 __device__ double sigmoid(double x){if(x>=0)return 1/(1+exp(-x));double e=exp(x);return e/(1+e);}
 __global__ void fill_kernel(double* p,std::size_t n,double value){
@@ -87,6 +104,15 @@ void upload(double* destination,const double* source,std::size_t count,int devic
 void download(double* destination,const double* source,std::size_t count,int device){if(!count)return;select(device);check(cudaMemcpy(destination,source,count*sizeof(double),cudaMemcpyDeviceToHost),"resident download");++download_count;download_bytes+=count*sizeof(double);}
 void operation(Operation op,const double* a,const double* b,const double* c,double* out,int rows,int cols,int output_rows,int output_cols,int other,int auxiliary,double scale,double offset,int device){
     const auto count=static_cast<std::size_t>(output_rows)*output_cols;if(!count)return;select(device);
+#if defined(ML_USE_CUBLAS)
+    if(op==Operation::Matmul){
+        if(cols==0)return; // Output has already been initialized to zero.
+        thread_local BlasHandle context;const double alpha=1,beta=0;
+        // Row-major C=A*B is column-major C^T=B^T*A^T: operands reversed.
+        check_blas(cublasDgemm(context.get(device),CUBLAS_OP_N,CUBLAS_OP_N,
+            output_cols,rows,cols,&alpha,b,output_cols,a,cols,&beta,out,output_cols),"cublasDgemm");return;
+    }
+#endif
     if((op==Operation::Activate||op==Operation::ActivationBackward)&&auxiliary==5)softmax_kernel<<<blocks(cols),256>>>(a,b,c,out,rows,cols,op==Operation::ActivationBackward);
     else operation_kernel<<<blocks(count),256>>>(op,a,b,c,out,rows,cols,output_rows,output_cols,other,auxiliary,scale,offset);
     check(cudaGetLastError(),"resident operation");
@@ -106,4 +132,12 @@ bool all_finite(const double* pointer,std::size_t count,int device){
 }
 Statistics statistics()noexcept{return {allocation_count.load(),upload_count.load(),download_count.load(),upload_bytes.load(),download_bytes.load()};}
 void reset_statistics()noexcept{allocation_count=0;upload_count=0;download_count=0;upload_bytes=0;download_bytes=0;}
+void synchronize(int device){select(device);check(cudaDeviceSynchronize(),"resident synchronize");}
+const char* matmul_implementation()noexcept{
+#if defined(ML_USE_CUBLAS)
+    return "cuBLAS Dgemm";
+#else
+    return "reference CUDA kernel";
+#endif
+}
 }

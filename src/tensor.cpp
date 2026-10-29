@@ -4,6 +4,7 @@
 #include <limits>
 #include <stdexcept>
 #include <vector>
+#include <utility>
 
 namespace ml
 {
@@ -390,4 +391,5 @@ namespace ml
     bool Tensor::all_finite()const {if(backend_==Backend::CUDA)return gpu::resident::all_finite(buffer_->device_values,size(),buffer_->device);for(std::size_t i=0;i<size();++i)if(!std::isfinite(read()[i]))return false;return true;}
 
     double LossResult::mean() const { return values.sum() / values.cols(); }
+    void Tensor::synchronize()const{if(backend_==Backend::CUDA)gpu::resident::synchronize(buffer_->device);}
 }

@@ -13,4 +13,6 @@ double sum(const double*,std::size_t,int){unavailable();}
 bool all_finite(const double*,std::size_t,int){unavailable();}
 Statistics statistics()noexcept{return {};}
 void reset_statistics()noexcept{}
+void synchronize(int){unavailable();}
+const char* matmul_implementation()noexcept{return "CPU-only build";}
 }

@@ -20,4 +20,6 @@ double sum(const double* pointer,std::size_t count,int device);
 bool all_finite(const double* pointer,std::size_t count,int device);
 Statistics statistics()noexcept;
 void reset_statistics()noexcept;
+void synchronize(int device);
+const char* matmul_implementation()noexcept;
 }

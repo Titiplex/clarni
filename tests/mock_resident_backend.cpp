@@ -42,4 +42,6 @@ double sum(const double* pointer,std::size_t count,int){double value=0;for(std::
 bool all_finite(const double* pointer,std::size_t count,int){for(std::size_t i=0;i<count;++i)if(!std::isfinite(pointer[i]))return false;return true;}
 Statistics statistics()noexcept{return counters;}
 void reset_statistics()noexcept{counters={};}
+void synchronize(int){}
+const char* matmul_implementation()noexcept{return "simulation";}
 }

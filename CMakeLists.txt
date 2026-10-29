@@ -7,6 +7,11 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(ML_ENABLE_CUDA "Compiler le backend CUDA (necessite nvcc/MSVC sous Windows)" OFF)
 option(ML_BUILD_EXAMPLES "Compiler les exemples" ON)
+option(ML_BUILD_BENCHMARKS "Compiler les mesures CPU/CUDA" OFF)
+option(ML_USE_CUBLAS "Utiliser cuBLAS pour les produits Tensor CUDA" OFF)
+if(ML_USE_CUBLAS AND NOT ML_ENABLE_CUDA)
+    message(FATAL_ERROR "ML_USE_CUBLAS exige ML_ENABLE_CUDA=ON")
+endif()
 set(ML_CUDA_BUILT OFF)
 
 if (ML_ENABLE_CUDA)
@@ -37,6 +42,10 @@ target_compile_features(ML PUBLIC cxx_std_23)
 if (ML_CUDA_BUILT)
     target_sources(ML PRIVATE src/gpu/matrix.cu src/gpu/tensor.cu)
     target_link_libraries(ML PRIVATE CUDA::cudart_static)
+    if(ML_USE_CUBLAS)
+        target_link_libraries(ML PRIVATE CUDA::cublas)
+        target_compile_definitions(ML PRIVATE ML_USE_CUBLAS=1)
+    endif()
     target_compile_definitions(ML PRIVATE HAS_CUDA=1 HAS_CUDA_KERNELS=1)
     set_target_properties(ML PROPERTIES
             CUDA_STANDARD 17 CUDA_STANDARD_REQUIRED ON CUDA_EXTENSIONS OFF
@@ -49,6 +58,10 @@ endif ()
 if (ML_BUILD_EXAMPLES)
     add_subdirectory(examples)
 endif ()
+
+if(ML_BUILD_BENCHMARKS)
+    add_subdirectory(benchmarks)
+endif()
 
 include(CTest)
 if (BUILD_TESTING)
