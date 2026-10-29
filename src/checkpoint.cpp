@@ -23,12 +23,14 @@ Tensor read_tensor(std::istream& file,std::size_t& budget){
 }
 void NeuralNetwork::save(const std::string& path)const{
     validate_topology();std::ofstream file(path);if(!file)throw std::runtime_error("Cannot open model checkpoint");
+    Optimizer effective=optimizer_;
+    for(std::size_t i=0;i<layers.size();++i)if(observed_revisions_[i]!=layers[i].revision())effective.reset(i);
     file<<std::setprecision(std::numeric_limits<double>::max_digits10)<<"CLARNI_MODEL 1\n"
         <<layer_nb<<' '<<layers.size()<<' '<<learning_rate<<' '<<learning_type<<' '<<error_type_<<' '<<l2_<<'\n';
-    const auto& options=optimizer_.options();file<<static_cast<int>(options.kind)<<' '<<options.momentum<<' '<<options.beta1<<' '<<options.beta2<<' '<<options.epsilon<<'\n';
+    const auto& options=effective.options();file<<static_cast<int>(options.kind)<<' '<<options.momentum<<' '<<options.beta1<<' '<<options.beta2<<' '<<options.epsilon<<'\n';
     for(const auto& layer:layers){file<<layer.input_size()<<' '<<layer.output_size()<<' '<<layer.activation_type()<<'\n';write_tensor(file,layer.tensor_weights());}
-    file<<optimizer_.states().size()<<'\n';
-    for(const auto& state:optimizer_.states()){
+    file<<effective.states().size()<<'\n';
+    for(const auto& state:effective.states()){
         file<<state.steps<<' '<<state.rows<<' '<<state.cols<<'\n';write_tensor(file,state.first);write_tensor(file,state.second);
     }
     file<<generator<<"\nEND\n";if(!file)throw std::runtime_error("Model checkpoint write failed");

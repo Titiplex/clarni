@@ -136,6 +136,8 @@ namespace ml
         losses.reserve(epochs);
         for (std::size_t epoch = 0; epoch < epochs; ++epoch)
         {
+            // Canonical order each epoch: RNG state alone suffices to resume exactly.
+            std::iota(order.begin(),order.end(),0);
             if (shuffle)std::shuffle(order.begin(), order.end(), generator);
             for (std::size_t begin = 0; begin < dataset.size();)
             {
@@ -209,10 +211,10 @@ namespace ml
         set_l2(options.l2);FitResult result;
         double best_value=mean_loss(validation),patience_reference=best_value;std::size_t stale=0;
         NeuralNetwork best=*this;
-        for(std::size_t epoch=1;epoch<=options.epochs;++epoch){
+        for(std::size_t epoch=0;epoch<options.epochs;++epoch){
             const auto loss=learn(training,1,options.batch_size,options.shuffle).back();const double val=mean_loss(validation);
             result.training_loss.push_back(loss);result.validation_loss.push_back(val);
-            if(val<best_value){best_value=val;best=*this;result.best_epoch=epoch;}
+            if(val<best_value){best_value=val;best=*this;result.best_epoch=epoch+1;}
             if(val<patience_reference-options.min_delta){patience_reference=val;stale=0;}else ++stale;
             if(options.patience&&stale>=options.patience)break;
         }
