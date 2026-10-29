@@ -1,9 +1,7 @@
 #pragma once
-#include <cstddef>
 #include <cstdint>
 #include <random>
 #include "matrix.h"
-#include "func.h"
 #include "tensor.h"
 #include "optimizer.h"
 

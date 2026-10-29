@@ -29,11 +29,11 @@ namespace ml::ad
 
     public:
         explicit Variable(Tensor value, bool requires_gradient = true);
-        const Tensor& value() const;
-        const Tensor& grad() const;
-        bool requires_grad() const;
-        bool has_grad() const;
-        Variable detach() const;
+        [[nodiscard]] const Tensor& value() const;
+        [[nodiscard]] const Tensor& grad() const;
+        [[nodiscard]] bool requires_grad() const;
+        [[nodiscard]] bool has_grad() const;
+        [[nodiscard]] Variable detach() const;
         void backward();
         void backward(const Tensor& seed);
     };

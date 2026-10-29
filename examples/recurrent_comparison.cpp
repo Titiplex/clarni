@@ -1,10 +1,11 @@
 #include "gated_recurrent.h"
 #include <iostream>
+
 int main()
 {
     using namespace ml;
-    auto x = nd::Array::from({1, 4, 1}, {-1, 1, -1, 1}),
-         target = nd::Array::from({1, 4, 1}, {1, -1, 1, -1});
+    const auto x = nd::Array::from({1, 4, 1}, {-1, 1, -1, 1});
+    const auto target = nd::Array::from({1, 4, 1}, {1, -1, 1, -1});
     bool success = true;
     for (int type = 0; type < 3; ++type)
     {
@@ -25,7 +26,7 @@ int main()
             nd::mse(model.forward(x), target).backward();
             trainer.step(.03, 1);
         }
-        double loss = nd::mse(model.forward(x), target).item();
+        const double loss = nd::mse(model.forward(x), target).item();
         std::cout << (type == 0 ? "RNN" : type == 1 ? "GRU" : "LSTM") << ": MSE=" << loss << '\n';
         success = success && loss < .01;
     }

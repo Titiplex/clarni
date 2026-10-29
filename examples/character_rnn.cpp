@@ -2,21 +2,25 @@
 #include "recurrent.h"
 #include <algorithm>
 #include <iostream>
+
 class CharacterModel final : public ml::nn::Module
 {
-  public:
+public:
     ml::nn::Embedding embedding{3, 4};
     ml::nn::RNN rnn{4, 8};
     ml::nn::Linear head{8, 3};
-    ml::nd::Array logits(const std::vector<int> &ids, int length)
+
+    ml::nd::Array logits(const std::vector<int>& ids, int length)
     {
         return head.forward(rnn.forward(embedding.lookup({ids, {1, length}})));
     }
+
     std::vector<ml::nn::NamedParameter> named_parameters() const override
     {
         std::vector<ml::nn::NamedParameter> out;
-        for (auto &[prefix, module] : std::vector<std::pair<std::string, const ml::nn::Module *>>{
-                 {"embedding.", &embedding}, {"rnn.", &rnn}, {"head.", &head}})
+        for (auto& [prefix, module] : std::vector<std::pair<std::string, const ml::nn::Module*>>{
+                 {"embedding.", &embedding}, {"rnn.", &rnn}, {"head.", &head}
+             })
             for (auto p : module->named_parameters())
             {
                 p.name = prefix + p.name;
@@ -25,6 +29,7 @@ class CharacterModel final : public ml::nn::Module
         return out;
     }
 };
+
 int main()
 {
     using namespace ml;
@@ -51,8 +56,8 @@ int main()
         auto result = model.rnn.run(e, {}, hidden);
         hidden = result.hidden.detach();
         auto values = model.head.forward(result.hidden).values();
-        token = int(std::max_element(values.begin(), values.end()) - values.begin());
-        std::cout << char('a' + token);
+        token = static_cast<int>(std::ranges::max_element(values) - values.begin());
+        std::cout << static_cast<char>('a' + token);
     }
     std::cout << '\n';
     return after < .05 ? 0 : 1;

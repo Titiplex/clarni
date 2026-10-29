@@ -39,15 +39,15 @@ Les exemples utilisent tous des données synthétiques ou un corpus jouet intég
 
 ## Exemples : résultats observés en Release
 
-| Exemple nouveau | Résultat |
-|---|---|
-| `modular_mlp` | XOR, entropie croisée ≈ 0.000431 |
-| `word_embeddings` | SkipGram, perte 2.36058 → 0.775308 |
-| `embedding_cnn` | Classification, perte 0.84013 → 0.000283 |
-| `cnn` | Classification Conv1D, perte 0.673292 → 0.002509 |
-| `character_rnn` | Perte 1.42508 → 0.001200 ; génération du motif `abc` |
-| `recurrent_comparison` | MSE RNN ≈ 1.57e-6, GRU ≈ 4.72e-8, LSTM ≈ 1.39e-8 |
-| `tiny_transformer` | Perte 1.45025 → 0.000405 ; génération du motif `abc` |
+| Exemple nouveau        | Résultat                                             |
+|------------------------|------------------------------------------------------|
+| `modular_mlp`          | XOR, entropie croisée ≈ 0.000431                     |
+| `word_embeddings`      | SkipGram, perte 2.36058 → 0.775308                   |
+| `embedding_cnn`        | Classification, perte 0.84013 → 0.000283             |
+| `cnn`                  | Classification Conv1D, perte 0.673292 → 0.002509     |
+| `character_rnn`        | Perte 1.42508 → 0.001200 ; génération du motif `abc` |
+| `recurrent_comparison` | MSE RNN ≈ 1.57e-6, GRU ≈ 4.72e-8, LSTM ≈ 1.39e-8     |
+| `tiny_transformer`     | Perte 1.45025 → 0.000405 ; génération du motif `abc` |
 
 Ces chiffres dépendent du compilateur et de l'implémentation de la distribution
 aléatoire standard ; ce ne sont pas des mesures de généralisation ou de vitesse.

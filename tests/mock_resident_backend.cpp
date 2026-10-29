@@ -17,8 +17,9 @@ namespace ml::gpu
             for (int j = 0; j < cols; ++j)
             {
                 double sum = 0;
-                for (int k = 0; k < inner; ++k)sum += a[static_cast<std::size_t>(i) * inner + k] * b[static_cast<
-                    std::size_t>(k) * cols + j];
+                for (int k = 0; k < inner; ++k)
+                    sum += a[static_cast<std::size_t>(i) * inner + k] * b[static_cast<
+                        std::size_t>(k) * cols + j];
                 c[static_cast<std::size_t>(i) * cols + j] = sum;
             }
     }

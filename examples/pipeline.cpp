@@ -9,9 +9,11 @@ int main(int argc, char** argv)
     {
         ml::initialize_compute(ml::Backend::Auto);
         std::vector<ml::Sample> samples;
-        for (int x = -3; x <= 3; ++x)for (int y = -3; y <= 3; ++y)samples.push_back({
-            {double(x), double(y)}, {2.0 * x - 3.0 * y + 0.7}
-        });
+        for (int x = -3; x <= 3; ++x)
+            for (int y = -3; y <= 3; ++y)
+                samples.push_back({
+                    {static_cast<double>(x), static_cast<double>(y)}, {2.0 * x - 3.0 * y + 0.7}
+                });
         const auto split = ml::split_dataset(ml::Dataset(samples), 0.2, 0.2, 42, true);
         ml::StandardScaler scaler;
         scaler.fit(split.training);
@@ -37,7 +39,7 @@ int main(int argc, char** argv)
             auto restored = ml::NeuralNetwork::load(argv[1]);
             auto preprocessing = ml::StandardScaler::load(std::string(argv[1]) + ".scaler");
             std::cout << "Prediction reloaded: " << restored.output(
-                preprocessing.transform(std::vector<double>{0.3, -0.4}))[0] << " (expected 2.5)\n";
+                preprocessing.transform(std::vector{0.3, -0.4}))[0] << " (expected 2.5)\n";
         }
         return net.mean_loss(test) < 1e-3 ? 0 : 1;
     }

@@ -23,7 +23,7 @@ namespace ml
         int rows_, cols_;
         Backend backend_;
         [[nodiscard]] const double* read() const;
-        double* write() const;
+        [[nodiscard]] double* write() const;
         void compatible(const Tensor& other, bool shape = true) const;
         Tensor device_operation(gpu::resident::Operation operation, int output_rows, int output_cols,
                                 const Tensor* b = nullptr, const Tensor* c = nullptr, int other = 0, int auxiliary = 0,

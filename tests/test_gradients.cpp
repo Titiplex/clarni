@@ -3,6 +3,8 @@
 #include "compute_device.h"
 #include <limits>
 
+#include "func.h"
+
 using namespace ml;
 using namespace ml::math;
 

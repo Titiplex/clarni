@@ -1,15 +1,16 @@
 #include "convolution.h"
-#include <cmath>
 #include <limits>
 #include <stdexcept>
+
 namespace ml::nn
 {
     namespace
     {
         using nd::Shape;
         using nd::Vector;
-        Shape spatial_output(const Shape &input, const Shape &kernel, const Shape &stride,
-                             const Shape &padding, const Shape &dilation)
+
+        Shape spatial_output(const Shape& input, const Shape& kernel, const Shape& stride,
+                             const Shape& padding, const Shape& dilation)
         {
             const auto rank = kernel.size();
             if ((rank != 1 && rank != 2) || input.size() != rank + 2 || stride.size() != rank ||
@@ -20,54 +21,62 @@ namespace ml::nn
             {
                 if (kernel[i] <= 0 || stride[i] <= 0 || padding[i] < 0 || dilation[i] <= 0)
                     throw std::invalid_argument("Invalid spatial options");
-                auto extent = static_cast<long long>(input[i + 2]) + 2LL * padding[i] -
-                              static_cast<long long>(dilation[i]) * (kernel[i] - 1) - 1;
+                const auto extent = static_cast<long long>(input[i + 2]) + 2LL * padding[i] -
+                    static_cast<long long>(dilation[i]) * (kernel[i] - 1) - 1;
                 if (extent < 0 || extent / stride[i] + 1 > (std::numeric_limits<int>::max)())
                     throw std::invalid_argument("Invalid spatial output size");
-                result.push_back(int(extent / stride[i] + 1));
+                result.push_back(static_cast<int>(extent / stride[i] + 1));
             }
             return result;
         }
+
         // Iterate all valid input/weight/output connections, without storing an im2col buffer.
         template <class F>
-        void connections(const Shape &x, const Shape &w, const Shape &y, const Shape &kernel,
-                         const Shape &stride, const Shape &padding, const Shape &dilation, F fn)
+        void connections(const Shape& x, const Shape& w, const Shape& y, const Shape& kernel,
+                         const Shape& stride, const Shape& padding, const Shape& dilation, F fn)
         {
-            int ih = x.size() == 4 ? x[2] : 1, iw = x.back(), oh = y.size() == 4 ? y[2] : 1,
-                ow = y.back();
-            int kh = kernel.size() == 2 ? kernel[0] : 1, kw = kernel.back();
-            int sh = kernel.size() == 2 ? stride[0] : 1, sw = stride.back();
-            int ph = kernel.size() == 2 ? padding[0] : 0, pw = padding.back();
-            int dh = kernel.size() == 2 ? dilation[0] : 1, dw = dilation.back();
+            const int ih = x.size() == 4 ? x[2] : 1;
+            const int iw = x.back();
+            const int oh = y.size() == 4 ? y[2] : 1;
+            const int ow = y.back();
+            const int kh = kernel.size() == 2 ? kernel[0] : 1;
+            const int kw = kernel.back();
+            const int sh = kernel.size() == 2 ? stride[0] : 1;
+            const int sw = stride.back();
+            const int ph = kernel.size() == 2 ? padding[0] : 0;
+            const int pw = padding.back();
+            const int dh = kernel.size() == 2 ? dilation[0] : 1;
+            const int dw = dilation.back();
             for (int b = 0; b < x[0]; ++b)
                 for (int oc = 0; oc < w[0]; ++oc)
                     for (int h = 0; h < oh; ++h)
                         for (int l = 0; l < ow; ++l)
                         {
-                            std::size_t oi = ((std::size_t(b) * w[0] + oc) * oh + h) * ow + l;
+                            std::size_t oi = ((static_cast<std::size_t>(b) * w[0] + oc) * oh + h) * ow + l;
                             for (int ic = 0; ic < x[1]; ++ic)
                                 for (int r = 0; r < kh; ++r)
                                     for (int c = 0; c < kw; ++c)
                                     {
-                                        long long xi = static_cast<long long>(h) * sh - ph +
-                                                       static_cast<long long>(r) * dh;
-                                        long long xj = static_cast<long long>(l) * sw - pw +
-                                                       static_cast<long long>(c) * dw;
+                                        const long long xi = static_cast<long long>(h) * sh - ph +
+                                            static_cast<long long>(r) * dh;
+                                        const long long xj = static_cast<long long>(l) * sw - pw +
+                                            static_cast<long long>(c) * dw;
                                         if (xi < 0 || xi >= ih || xj < 0 || xj >= iw)
                                             continue;
                                         std::size_t ii =
-                                            ((std::size_t(b) * x[1] + ic) * ih + std::size_t(xi)) *
-                                                iw +
-                                            std::size_t(xj);
+                                            ((static_cast<std::size_t>(b) * x[1] + ic) * ih + static_cast<std::size_t>(
+                                                xi)) *
+                                            iw +
+                                            static_cast<std::size_t>(xj);
                                         std::size_t wi =
-                                            ((std::size_t(oc) * x[1] + ic) * kh + r) * kw + c;
+                                            ((static_cast<std::size_t>(oc) * x[1] + ic) * kh + r) * kw + c;
                                         fn(ii, wi, oi);
                                     }
                         }
         }
     } // namespace
-    Convolution::Convolution(int in, int out, Shape k, Shape s, Shape p, Shape d,
-                             std::uint32_t seed)
+    Convolution::Convolution(const int in, int out, Shape k, Shape s, Shape p, Shape d,
+                             const std::uint32_t seed)
         : in_(in), out_(out), kernel_(std::move(k)), stride_(std::move(s)), padding_(std::move(p)),
           dilation_(std::move(d))
     {
@@ -82,10 +91,11 @@ namespace ml::nn
         shape.insert(shape.end(), kernel_.begin(), kernel_.end());
         nd::numel(shape);
         std::mt19937 gen(seed);
-        weight = normal_parameter(shape, std::sqrt(2.0 / (double(in) * nd::numel(kernel_))), gen);
+        weight = normal_parameter(shape, std::sqrt(2.0 / (static_cast<double>(in) * nd::numel(kernel_))), gen);
         bias = std::make_shared<Parameter>(nd::Array({out}));
     }
-    nd::Array Convolution::forward(const nd::Array &a)
+
+    nd::Array Convolution::forward(const nd::Array& a)
     {
         auto xshape = a.shape();
         auto spatial = spatial_output(xshape, kernel_, stride_, padding_, dilation_);
@@ -93,7 +103,8 @@ namespace ml::nn
             throw std::invalid_argument("Convolution input channels mismatch");
         Shape yshape = {xshape[0], out_};
         yshape.insert(yshape.end(), spatial.begin(), spatial.end());
-        auto x = a.values(), w = weight->value().values(), biases = bias->value().values();
+        auto x = a.values(), w = weight->value().values();
+        const auto biases = bias->value().values();
         auto wshape = weight->value().shape();
         Vector y(nd::numel(yshape));
         auto spatial_size = nd::numel(spatial);
@@ -104,31 +115,40 @@ namespace ml::nn
                     [&](auto ii, auto wi, auto oi) { y[oi] += x[ii] * w[wi]; });
         return nd::operation(
             yshape, std::move(y),
-            {{a,
-              [xshape, wshape, yshape, k, s, p, d, w](const Vector &g)
-              {
-                  Vector r(nd::numel(xshape), 0);
-                  connections(xshape, wshape, yshape, k, s, p, d,
-                              [&](auto ii, auto wi, auto oi) { r[ii] += g[oi] * w[wi]; });
-                  return r;
-              }},
-             {weight->value(),
-              [xshape, wshape, yshape, k, s, p, d, x](const Vector &g)
-              {
-                  Vector r(nd::numel(wshape), 0);
-                  connections(xshape, wshape, yshape, k, s, p, d,
-                              [&](auto ii, auto wi, auto oi) { r[wi] += g[oi] * x[ii]; });
-                  return r;
-              }},
-             {bias->value(), [out = out_, spatial_size](const Vector &g)
-              {
-                  Vector r(out, 0);
-                  for (std::size_t i = 0; i < g.size(); ++i)
-                      r[i / spatial_size % out] += g[i];
-                  return r;
-              }}});
+            {
+                {
+                    a,
+                    [xshape, wshape, yshape, k, s, p, d, w](const Vector& g)
+                    {
+                        Vector r(nd::numel(xshape), 0);
+                        connections(xshape, wshape, yshape, k, s, p, d,
+                                    [&](auto ii, auto wi, auto oi) { r[ii] += g[oi] * w[wi]; });
+                        return r;
+                    }
+                },
+                {
+                    weight->value(),
+                    [xshape, wshape, yshape, k, s, p, d, x](const Vector& g)
+                    {
+                        Vector r(nd::numel(wshape), 0);
+                        connections(xshape, wshape, yshape, k, s, p, d,
+                                    [&](auto ii, auto wi, auto oi) { r[wi] += g[oi] * x[ii]; });
+                        return r;
+                    }
+                },
+                {
+                    bias->value(), [out = out_, spatial_size](const Vector& g)
+                    {
+                        Vector r(out, 0);
+                        for (std::size_t i = 0; i < g.size(); ++i)
+                            r[i / spatial_size % out] += g[i];
+                        return r;
+                    }
+                }
+            });
     }
-    nd::Array pool(const nd::Array &a, Shape kernel, Shape stride, PoolKind kind)
+
+    nd::Array pool(const nd::Array& a, const Shape& kernel, const Shape& stride, PoolKind kind)
     {
         if (kind != PoolKind::Max && kind != PoolKind::Average)
             throw std::invalid_argument("Invalid pool kind");
@@ -139,12 +159,13 @@ namespace ml::nn
         auto x = a.values();
         Vector out(nd::numel(shape),
                    kind == PoolKind::Max ? -std::numeric_limits<double>::infinity() : 0);
-        std::vector<std::size_t> argmax(out.size(), a.size());
+        std::vector argmax(out.size(), a.size());
         int ih = a.shape().size() == 4 ? a.shape()[2] : 1, iw = a.shape().back();
-        int oh = shape.size() == 4 ? shape[2] : 1, ow = shape.back(),
-            kh = kernel.size() == 2 ? kernel[0] : 1, kw = kernel.back();
+        int oh = shape.size() == 4 ? shape[2] : 1, ow = shape.back();
+        const int kw = kernel.back();
+        const int kh = kernel.size() == 2 ? kernel[0] : 1;
         int sh = kernel.size() == 2 ? stride[0] : 1, sw = stride.back();
-        const double divisor = double(kh) * kw;
+        const double divisor = static_cast<double>(kh) * kw;
         auto visit = [=](auto fn)
         {
             for (int b = 0; b < shape[0]; ++b)
@@ -152,12 +173,12 @@ namespace ml::nn
                     for (int h = 0; h < oh; ++h)
                         for (int l = 0; l < ow; ++l)
                         {
-                            auto oi = ((std::size_t(b) * shape[1] + c) * oh + h) * ow + l;
+                            auto oi = ((static_cast<std::size_t>(b) * shape[1] + c) * oh + h) * ow + l;
                             for (int r = 0; r < kh; ++r)
                                 for (int q = 0; q < kw; ++q)
                                 {
                                     auto ii =
-                                        ((std::size_t(b) * shape[1] + c) * ih + h * sh + r) * iw +
+                                        ((static_cast<std::size_t>(b) * shape[1] + c) * ih + h * sh + r) * iw +
                                         l * sw + q;
                                     fn(ii, oi);
                                 }
@@ -175,18 +196,23 @@ namespace ml::nn
                 }
             });
         return nd::operation(shape, std::move(out),
-                             {{a, [visit, argmax, kind, divisor, n = a.size()](const Vector &g)
-                               {
-                                   Vector r(n, 0);
-                                   if (kind == PoolKind::Average)
-                                       visit([&](auto ii, auto oi) { r[ii] += g[oi] / divisor; });
-                                   else
-                                       for (std::size_t i = 0; i < g.size(); ++i)
-                                           r[argmax[i]] += g[i];
-                                   return r;
-                               }}});
+                             {
+                                 {
+                                     a, [visit, argmax, kind, divisor, n = a.size()](const Vector& g)
+                                     {
+                                         Vector r(n, 0);
+                                         if (kind == PoolKind::Average)
+                                             visit([&](auto ii, auto oi) { r[ii] += g[oi] / divisor; });
+                                         else
+                                             for (std::size_t i = 0; i < g.size(); ++i)
+                                                 r[argmax[i]] += g[i];
+                                         return r;
+                                     }
+                                 }
+                             });
     }
-    nd::Array GlobalMaxPool1D::forward(const nd::Array &a)
+
+    nd::Array GlobalMaxPool1D::forward(const nd::Array& a)
     {
         if (a.shape().size() != 3)
             throw std::invalid_argument("GlobalMaxPool1D expects [B,C,L]");

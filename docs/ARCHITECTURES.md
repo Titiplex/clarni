@@ -19,18 +19,18 @@ ni corpus externe n'est inclus.
 
 ## Formes et types
 
-| Objet | Convention |
-|---|---|
-| `nd::Array` | Stockage contigu row-major, forme N-D, dimensions strictement positives |
-| Scalaire | Forme `{}`, un élément |
-| `Linear` | `[..., input_features]` → `[..., output_features]` |
-| `TokenBatch` | Identifiants entiers avec une forme explicite |
-| `Embedding` | Identifiants `[...]` → `[..., embedding_dim]` |
-| `Conv1D` | `[batch, channels, length]` |
-| `Conv2D` | `[batch, channels, height, width]` |
-| RNN, GRU, LSTM | `[batch, time, input_features]` → `[batch, time, hidden_features]` |
-| Attention / Transformer | `[batch, time, features]` |
-| Logits de langage | `[batch, time, vocabulary_size]` |
+| Objet                   | Convention                                                              |
+|-------------------------|-------------------------------------------------------------------------|
+| `nd::Array`             | Stockage contigu row-major, forme N-D, dimensions strictement positives |
+| Scalaire                | Forme `{}`, un élément                                                  |
+| `Linear`                | `[..., input_features]` → `[..., output_features]`                      |
+| `TokenBatch`            | Identifiants entiers avec une forme explicite                           |
+| `Embedding`             | Identifiants `[...]` → `[..., embedding_dim]`                           |
+| `Conv1D`                | `[batch, channels, length]`                                             |
+| `Conv2D`                | `[batch, channels, height, width]`                                      |
+| RNN, GRU, LSTM          | `[batch, time, input_features]` → `[batch, time, hidden_features]`      |
+| Attention / Transformer | `[batch, time, features]`                                               |
+| Logits de langage       | `[batch, time, vocabulary_size]`                                        |
 
 `nd::Array` ajoute des métadonnées de forme à une `ad::Variable` dont le stockage
 est un `Tensor` plat. Il ne s'agit pas d'une réécriture du stockage matriciel.
