@@ -171,11 +171,10 @@ namespace ml
         return result;
     }
 
-    math::Vector NeuralNetwork::output(const std::vector<double>& input) const
-    {
-        math::Matrix matrix(static_cast<int>(input.size()), 1);
-        for (std::size_t i = 0; i < input.size(); ++i)matrix(static_cast<int>(i), 0) = input[i];
-        return math::Vector::convert(output_batch(Tensor::from_matrix(matrix, compute_device().selected)).to_matrix());
+    math::Vector NeuralNetwork::output(const std::vector<double>& input)const{
+        validate_topology();if(input.size()!=static_cast<std::size_t>(layers.front().input_size()))throw std::invalid_argument("Input dimension");
+        math::Matrix matrix(static_cast<int>(input.size()),1);for(std::size_t i=0;i<input.size();++i)matrix(static_cast<int>(i),0)=input[i];
+        return math::Vector::convert(output_batch(Tensor::from_matrix(matrix,compute_device().selected)).to_matrix());
     }
 
     double NeuralNetwork::mean_loss(const Dataset& dataset) const
@@ -198,5 +197,25 @@ namespace ml
         }
         if (!std::isfinite(total))throw std::overflow_error("Non-finite loss");
         return total / static_cast<double>(dataset.size());
+    }
+
+    void NeuralNetwork::set_l2(double coefficient){if(!std::isfinite(coefficient)||coefficient<0)throw std::invalid_argument("Invalid L2 coefficient");l2_=coefficient;}
+    double NeuralNetwork::objective_loss(const Dataset& data)const{
+        double value=mean_loss(data);if(l2_)for(const auto& layer:layers)value+=0.5*l2_*layer.tensor_weights().zero_first_column().unary(Unary::Square).sum();return value;
+    }
+    FitResult NeuralNetwork::fit(const Dataset& training,const Dataset& validation,const FitOptions& options){
+        validate_dataset(training);validate_dataset(validation);
+        if(!std::isfinite(options.min_delta)||options.min_delta<0)throw std::invalid_argument("Invalid early stopping delta");
+        set_l2(options.l2);FitResult result;
+        double best_value=mean_loss(validation),patience_reference=best_value;std::size_t stale=0;
+        NeuralNetwork best=*this;
+        for(std::size_t epoch=1;epoch<=options.epochs;++epoch){
+            const auto loss=learn(training,1,options.batch_size,options.shuffle).back();const double val=mean_loss(validation);
+            result.training_loss.push_back(loss);result.validation_loss.push_back(val);
+            if(val<best_value){best_value=val;best=*this;result.best_epoch=epoch;}
+            if(val<patience_reference-options.min_delta){patience_reference=val;stale=0;}else ++stale;
+            if(options.patience&&stale>=options.patience)break;
+        }
+        *this=std::move(best);return result;
     }
 }

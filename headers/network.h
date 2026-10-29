@@ -8,6 +8,15 @@
 
 namespace ml
 {
+    struct FitOptions {
+        std::size_t epochs=100,batch_size=32,patience=0;
+        bool shuffle=true;
+        double min_delta=0,l2=0;
+    };
+    struct FitResult {
+        std::vector<double> training_loss,validation_loss;
+        std::size_t best_epoch=0;
+    };
     class NeuralNetwork
     {
     public:
@@ -46,5 +55,8 @@ namespace ml
         math::Vector output(const std::vector<double>& input) const;
         Tensor output_batch(const Tensor& input) const;
         double mean_loss(const Dataset& dataset) const;
+        void set_l2(double coefficient);
+        double objective_loss(const Dataset& data)const;
+        FitResult fit(const Dataset& training,const Dataset& validation,const FitOptions& options={});
     };
 }
