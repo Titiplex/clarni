@@ -78,7 +78,7 @@ namespace ml::training
             auto first = values.begin() + static_cast<std::ptrdiff_t>(i * classes_);
             int predicted = static_cast<int>(std::max_element(first, first + classes_) - first);
             ++count_;
-            weighted_loss_ += mean_loss;
+            mean_loss_ += (static_cast<long double>(mean_loss) - mean_loss_) / count_;
             if (predicted == target)
             {
                 ++correct_;
@@ -97,7 +97,7 @@ namespace ml::training
             throw std::invalid_argument("No unmasked targets in dataset");
         Metrics m;
         m.count = count_;
-        m.loss = static_cast<double>(weighted_loss_ / count_);
+        m.loss = static_cast<double>(mean_loss_);
         m.accuracy = double(correct_) / count_;
         for (int c = 0; c < classes_; ++c)
         {

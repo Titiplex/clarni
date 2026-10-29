@@ -128,10 +128,10 @@ namespace ml::nd
             edges.emplace_back(parent.variable(),
                                [vjp, n = parent.size()](const Tensor &g)
                                {
-                                   const auto result = vjp(unpack(g));
+                                   auto result = vjp(unpack(g));
                                    if (result.size() != n)
                                        throw std::logic_error("N-D pullback size mismatch");
-                                   return pack(result);
+                                   return pack(std::move(result));
                                });
         return Array(std::move(shape), ad::operation(pack(std::move(values)), edges));
     }

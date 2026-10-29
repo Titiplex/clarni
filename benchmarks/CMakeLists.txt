@@ -1,2 +1,5 @@
 add_executable(clarni_benchmark_device device.cpp)
 target_link_libraries(clarni_benchmark_device PRIVATE ML)
+
+add_executable(clarni_benchmark_pipeline pipeline.cpp)
+target_link_libraries(clarni_benchmark_pipeline PRIVATE ML)

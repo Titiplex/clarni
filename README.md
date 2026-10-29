@@ -173,3 +173,15 @@ Voir [docs/ARCHITECTURES.md](docs/ARCHITECTURES.md) pour les conventions, exempl
 checkpoints, limites et commandes Windows. Les exemples `modular_mlp`,
 `word_embeddings`, `embedding_cnn`, `cnn`, `character_rnn`,
 `recurrent_comparison` et `tiny_transformer` exécutent des entraînements complets.
+
+## Pipeline d'entraînement sur données réelles
+
+`ml::data` fournit des datasets, splits, loaders reprenables et collateurs pour
+images et séquences. `ml::training::SupervisedTrainer` réunit entraînement,
+validation sans graphe, métriques masquées, scheduling et restauration du meilleur
+état, y compris Adam et le sampler. L'exemple `mnist` entraîne un CNN depuis les
+fichiers IDX ; `sequence_pipeline` illustre le padding avec un GRU.
+
+Voir [docs/TRAINING_PIPELINE.md](docs/TRAINING_PIPELINE.md) pour l'API et les
+commandes Windows, et [docs/VALIDATION_TRAINING.md](docs/VALIDATION_TRAINING.md)
+pour les contrôles et les résultats réels sur un sous-ensemble MNIST.

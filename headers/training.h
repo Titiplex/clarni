@@ -14,7 +14,7 @@ namespace ml::training
     {
         int classes_, ignore_;
         std::size_t count_ = 0, correct_ = 0;
-        long double weighted_loss_ = 0;
+        long double mean_loss_ = 0;
         std::vector<std::size_t> tp_, fp_, fn_;
 
       public:

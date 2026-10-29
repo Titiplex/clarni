@@ -33,6 +33,12 @@ int main()
               near(result.macro_f1, 2.0 / 3);
               near(result.perplexity, std::exp(result.loss));
               require(result.count == 3, "metric count");
+              ClassificationMetrics large(2);
+              large.add(x, y, 1e308);
+              large.add(x, y, 1e308);
+              near(large.result().loss, 1e308);
+              require(std::isinf(large.result().perplexity),
+                      "perplexity overflow should be explicit");
               ClassificationMetrics masked(2);
               masked.add(x, {0, 1, -1}, .5);
               near(masked.result().accuracy, 1);
@@ -190,6 +196,7 @@ int main()
           }},
          {"schedules and invalid pipeline options", []
           {
+              near(cosine_schedule(.1, .01, 1)(0), .1);
               auto cosine = cosine_schedule(.1, .01, 6, 2);
               near(cosine(0), .05);
               near(cosine(1), .1);
