@@ -25,7 +25,8 @@ void StandardScaler::fit(const Dataset& training){
         for(std::size_t i=0;i<dim;++i){double x=sample.input[i];if(!std::isfinite(x))throw std::invalid_argument("Non-finite scaler input");
             double delta=x-mean[i];mean[i]+=delta/static_cast<double>(count);m2[i]+=delta*(x-mean[i]);}}
     std::vector<double> scale(dim);for(std::size_t i=0;i<dim;++i){scale[i]=std::sqrt(std::max(0.0,m2[i]/static_cast<double>(count)));
-        if(!std::isfinite(mean[i])||!std::isfinite(scale[i]))throw std::overflow_error("Scaler statistics overflow");if(scale[i]<1e-12)scale[i]=1;}
+        if(!std::isfinite(mean[i])||!std::isfinite(scale[i]))throw std::overflow_error("Scaler statistics overflow");
+        if(scale[i]<1e-12)scale[i]=1;}
     mean_=std::move(mean);scale_=std::move(scale);
 }
 std::vector<double> StandardScaler::transform(const std::vector<double>& input)const{
@@ -36,7 +37,8 @@ Dataset StandardScaler::transform(const Dataset& data)const{
     std::vector<Sample> result;result.reserve(data.size());for(const auto& sample:data)result.push_back({transform(sample.input),sample.target});return Dataset(result);
 }
 void StandardScaler::save(const std::string& path)const{
-    if(mean_.empty())throw std::logic_error("Cannot save unfitted scaler");std::ofstream file(path);if(!file)throw std::runtime_error("Cannot open scaler file");
+    if(mean_.empty())throw std::logic_error("Cannot save unfitted scaler");
+    std::ofstream file(path);if(!file)throw std::runtime_error("Cannot open scaler file");
     file<<std::setprecision(17)<<"CLARNI_SCALER 1\n"<<mean_.size()<<'\n';for(std::size_t i=0;i<mean_.size();++i)file<<mean_[i]<<' '<<scale_[i]<<'\n';if(!file)throw std::runtime_error("Scaler write failed");
 }
 StandardScaler StandardScaler::load(const std::string& path){

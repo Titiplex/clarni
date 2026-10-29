@@ -2,6 +2,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <random>
+#include <string>
 #include <vector>
 #include "layer.h"
 #include "dataset.h"
@@ -58,5 +59,7 @@ namespace ml
         void set_l2(double coefficient);
         double objective_loss(const Dataset& data)const;
         FitResult fit(const Dataset& training,const Dataset& validation,const FitOptions& options={});
+        void save(const std::string& path)const;
+        static NeuralNetwork load(const std::string& path);
     };
 }
