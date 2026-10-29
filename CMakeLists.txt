@@ -28,7 +28,7 @@ add_library(ML STATIC
         src/network.cpp
         src/dataset.cpp
         src/compute_device.cpp)
-target_sources(ML PRIVATE src/tensor.cpp)
+target_sources(ML PRIVATE src/tensor.cpp src/optimizer.cpp)
 add_library(clarni::ML ALIAS ML)
 target_include_directories(ML PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/headers")
 target_compile_features(ML PUBLIC cxx_std_23)

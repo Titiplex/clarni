@@ -59,10 +59,8 @@ namespace ml
     math::Matrix Tensor::to_matrix() const
     {
         math::Matrix result(rows_, cols_);
-        for (int i = 0; i < rows_; ++i)
-            for (int j = 0; j < cols_; ++j)
-                result(i, j) = read()[static_cast<std::size_t>(i)
-                    * cols_ + j];
+        for (int i = 0; i < rows_; ++i)for (int j = 0; j < cols_; ++j)result(i, j) = read()[static_cast<std::size_t>(i)
+            * cols_ + j];
         return result;
     }
 
@@ -140,10 +138,8 @@ namespace ml
     Tensor Tensor::transpose() const
     {
         Tensor out(cols_, rows_, 0, backend_);
-        for (int i = 0; i < rows_; ++i)
-            for (int j = 0; j < cols_; ++j)
-                out.write()[static_cast<std::size_t>(j) * rows_ +
-                    i] = read()[static_cast<std::size_t>(i) * cols_ + j];
+        for (int i = 0; i < rows_; ++i)for (int j = 0; j < cols_; ++j)out.write()[static_cast<std::size_t>(j) * rows_ +
+            i] = read()[static_cast<std::size_t>(i) * cols_ + j];
         return out;
     }
 
@@ -156,9 +152,8 @@ namespace ml
             for (int j = 0; j < other.cols_; ++j)
             {
                 double sum = 0;
-                for (int k = 0; k < cols_; ++k)
-                    sum += read()[static_cast<std::size_t>(i) * cols_ + k] * other.read()[
-                        static_cast<std::size_t>(k) * other.cols_ + j];
+                for (int k = 0; k < cols_; ++k)sum += read()[static_cast<std::size_t>(i) * cols_ + k] * other.read()[
+                    static_cast<std::size_t>(k) * other.cols_ + j];
                 out.write()[static_cast<std::size_t>(i) * other.cols_ + j] = sum;
             }
         return out;
@@ -167,20 +162,16 @@ namespace ml
     Tensor Tensor::sum_columns() const
     {
         Tensor out(rows_, 1, 0, backend_);
-        for (int i = 0; i < rows_; ++i)
-            for (int j = 0; j < cols_; ++j)
-                out.write()[i] += read()[static_cast<std::size_t>(
-                    i) * cols_ + j];
+        for (int i = 0; i < rows_; ++i)for (int j = 0; j < cols_; ++j)out.write()[i] += read()[static_cast<std::size_t>(
+            i) * cols_ + j];
         return out;
     }
 
     Tensor Tensor::sum_rows() const
     {
         Tensor out(1, cols_, 0, backend_);
-        for (int i = 0; i < rows_; ++i)
-            for (int j = 0; j < cols_; ++j)
-                out.write()[j] += read()[static_cast<std::size_t>(
-                    i) * cols_ + j];
+        for (int i = 0; i < rows_; ++i)for (int j = 0; j < cols_; ++j)out.write()[j] += read()[static_cast<std::size_t>(
+            i) * cols_ + j];
         return out;
     }
 
@@ -188,10 +179,8 @@ namespace ml
     {
         if (cols_ != 1 || count < 0)throw std::invalid_argument("Tensor column broadcast");
         Tensor out(rows_, count, 0, backend_);
-        for (int i = 0; i < rows_; ++i)
-            for (int j = 0; j < count; ++j)
-                out.write()[static_cast<std::size_t>(i) * count +
-                    j] = read()[i];
+        for (int i = 0; i < rows_; ++i)for (int j = 0; j < count; ++j)out.write()[static_cast<std::size_t>(i) * count +
+            j] = read()[i];
         return out;
     }
 
@@ -199,10 +188,8 @@ namespace ml
     {
         if (rows_ != 1 || count < 0)throw std::invalid_argument("Tensor row broadcast");
         Tensor out(count, cols_, 0, backend_);
-        for (int i = 0; i < count; ++i)
-            for (int j = 0; j < cols_; ++j)
-                out.write()[static_cast<std::size_t>(i) * cols_ +
-                    j] = read()[j];
+        for (int i = 0; i < count; ++i)for (int j = 0; j < cols_; ++j)out.write()[static_cast<std::size_t>(i) * cols_ +
+            j] = read()[j];
         return out;
     }
 
@@ -210,19 +197,17 @@ namespace ml
     {
         if (rows_ == (std::numeric_limits<int>::max)())throw std::length_error("Bias row overflow");
         Tensor out(rows_ + 1, cols_, 1, backend_);
-        std::copy(read(), read() + size(), out.write() + cols_);
+        if (size())std::copy(read(), read() + size(), out.write() + cols_);
         return out;
     }
 
     Tensor Tensor::slice_rows(int first, int count) const
     {
-        if (first < 0 || count < 0 || first > rows_ || count > rows_ - first)
-            throw std::invalid_argument(
-                "Tensor row slice");
+        if (first < 0 || count < 0 || first > rows_ || count > rows_ - first)throw std::invalid_argument(
+            "Tensor row slice");
         Tensor out(count, cols_, 0, backend_);
-        if (out.size())
-            std::copy(read() + static_cast<std::size_t>(first) * cols_,
-                      read() + static_cast<std::size_t>(first + count) * cols_, out.write());
+        if (out.size())std::copy(read() + static_cast<std::size_t>(first) * cols_,
+                                 read() + static_cast<std::size_t>(first + count) * cols_, out.write());
         return out;
     }
 
@@ -333,18 +318,16 @@ namespace ml
             {
                 m = -std::numeric_limits<double>::infinity();
                 for (int i = 0; i < rows_; ++i)m = std::max(m, read()[static_cast<std::size_t>(i) * cols_ + j]);
-                for (int i = 0; i < rows_; ++i)
-                    normalizer += std::exp(
-                        read()[static_cast<std::size_t>(i) * cols_ + j] - m);
+                for (int i = 0; i < rows_; ++i)normalizer += std::exp(
+                    read()[static_cast<std::size_t>(i) * cols_ + j] - m);
             }
             for (int i = 0; i < rows_; ++i)
             {
                 const auto index = static_cast<std::size_t>(i) * cols_ + j;
                 const double x = read()[index], y = target.read()[index];
                 if (!std::isfinite(x) || !std::isfinite(y))throw std::invalid_argument("Non-finite loss input");
-                if (kind != LossKind::Squared && (y < 0 || y > 1))
-                    throw std::invalid_argument(
-                        "Invalid probability target");
+                if (kind != LossKind::Squared && (y < 0 || y > 1))throw std::invalid_argument(
+                    "Invalid probability target");
                 switch (kind)
                 {
                 case LossKind::Squared: values.write()[j] += 0.5 * (x - y) * (x - y);
@@ -361,9 +344,8 @@ namespace ml
                 default: throw std::invalid_argument("Unknown loss");
                 }
             }
-            if (kind == LossKind::CrossEntropy && std::abs(target_sum - 1) > 1e-8)
-                throw std::invalid_argument(
-                    "Class targets must sum to one");
+            if (kind == LossKind::CrossEntropy && std::abs(target_sum - 1) > 1e-8)throw std::invalid_argument(
+                "Class targets must sum to one");
         }
         return {values, gradient};
     }
