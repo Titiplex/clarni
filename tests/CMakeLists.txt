@@ -1,4 +1,4 @@
-foreach(component matrix functions network device gradients modes activations tensor optimizers tasks training checkpoints cuda)
+foreach(component matrix functions network device gradients modes activations tensor optimizers tasks training checkpoints autograd cuda)
     add_executable(clarni_test_${component} test_${component}.cpp)
     target_link_libraries(clarni_test_${component} PRIVATE ML)
     add_test(NAME clarni.${component} COMMAND clarni_test_${component})
