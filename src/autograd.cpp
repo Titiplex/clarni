@@ -83,6 +83,30 @@ namespace ml::ad
                 parent->gradient = parent->gradient + pullback((*it)->gradient);
     }
 
+    bool Variable::requires_grad() const { return node_->requires_gradient; }
+    bool Variable::has_grad() const { return node_->has_gradient; }
+    Variable Variable::detach() const { return Variable(value(), false); }
+
+    Variable operation(Tensor value, const std::vector<std::pair<Variable, Pullback>>& parents)
+    {
+        std::vector<Node::Edge> edges;
+        for (const auto& [parent, pullback] : parents)
+        {
+            if (!pullback) throw std::invalid_argument("Missing pullback");
+            if (parent.value().backend() != value.backend())
+                throw std::invalid_argument("Mixed backends in autograd operation");
+            edges.emplace_back(parent.node_, [pullback, expected=parent.value()](const Tensor& gradient)
+            {
+                auto result = pullback(gradient);
+                if (result.rows() != expected.rows() || result.cols() != expected.cols() ||
+                    result.backend() != expected.backend())
+                    throw std::logic_error("Invalid pullback shape/backend");
+                return result;
+            });
+        }
+        return Variable(node(std::move(value), std::move(edges)));
+    }
+
     Variable add(const Variable& a, const Variable& b)
     {
         return Variable(node(a.value() + b.value(), {

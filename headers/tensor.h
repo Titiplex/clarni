@@ -44,6 +44,7 @@ namespace ml
         [[nodiscard]] Tensor divide(const Tensor& other) const;
         [[nodiscard]] Tensor affine(double scale, double offset = 0.0) const;
         [[nodiscard]] Tensor unary(Unary operation) const;
+        [[nodiscard]] Tensor reshape(int rows, int cols) const;
         [[nodiscard]] Tensor transpose() const;
         [[nodiscard]] Tensor matmul(const Tensor& other) const;
         [[nodiscard]] Tensor sum_columns() const;

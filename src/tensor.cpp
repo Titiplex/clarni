@@ -117,6 +117,15 @@ namespace ml
         return result;
     }
 
+    Tensor Tensor::reshape(const int rows, const int cols) const
+    {
+        if (checked_size(rows, cols) != size()) throw std::invalid_argument("reshape size mismatch");
+        Tensor result = *this;
+        result.rows_ = rows;
+        result.cols_ = cols;
+        return result;
+    }
+
     Tensor Tensor::to(Backend backend) const
     {
         if (backend == Backend::Auto)backend = compute_device().selected;
