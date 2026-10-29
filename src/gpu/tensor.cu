@@ -268,7 +268,7 @@ namespace ml::gpu::resident
                     }
                     else if (kind == 1)
                     {
-                        value += fmax(x, 0) - x * y + log1p(exp(-fabs(x)));
+                        value += fmax(x, 0.0) - x * y + log1p(exp(-fabs(x)));
                         gradient[i] = sigmoid(x) - y;
                     }
                     else
