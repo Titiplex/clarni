@@ -25,6 +25,7 @@ namespace ml
 {
     Layer::Layer(int inputs, int neurons, Activation type)
         : nb_params(checked_inputs(inputs)), layer_size(checked_neurons(neurons)),
+          activation_type(type),
           weights(layer_size, nb_params + 1), cached_output(layer_size),
           cached_input(nb_params + 1), gradients(layer_size, nb_params + 1)
     {
@@ -62,7 +63,12 @@ namespace ml
 
     void Layer::init_random(std::mt19937& generator)
     {
-        const double limit = std::sqrt(6.0 / (static_cast<double>(nb_params) + layer_size));
+        const double variance = activation_type == RELU
+                                    ? 2.0 / nb_params
+                                    : activation_type == LEAKY_RELU
+                                    ? 2.0 / ((1.0 + 0.01 * 0.01) * nb_params)
+                                    : 2.0 / (static_cast<double>(nb_params) + layer_size);
+        const double limit = std::sqrt(3.0 * variance);
         std::uniform_real_distribution<double> distribution(-limit, limit);
         for (int i = 0; i < layer_size; ++i)
         {

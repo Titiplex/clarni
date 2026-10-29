@@ -14,6 +14,7 @@ namespace ml
 
     private:
         int nb_params, layer_size;
+        Activation activation_type;
         math::Matrix weights; // M x (N+1), biais en colonne 0.
         std::function<math::Vector(const math::Vector&)> activation;
         std::function<math::Vector(const math::Vector&)> derivative;

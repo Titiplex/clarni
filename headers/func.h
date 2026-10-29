@@ -1,6 +1,6 @@
 #pragma once
 #include "matrix.h"
-#include <cmath>
+#include <algorithm>
 #include <stdexcept>
 
 namespace ml::math::func
@@ -45,7 +45,7 @@ namespace ml::math::func
     {
         Vector output(activations.get_dim());
         for (int i = 0; i < activations.get_dim(); ++i)
-            output[i] = 1 - std::pow(std::tanh(activations[i]), 2);
+            output[i] = 1.0 - activations[i] * activations[i];
         return output;
     }
 
