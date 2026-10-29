@@ -1,110 +1,161 @@
 # Clarni
 
-Réseau dense pédagogique C++23, sigmoïde et perte quadratique, avec backend
-CPU ou CUDA pour les operations Matrix. Les kernels CUDA restent en C++17.
+Bibliothèque pédagogique C++23 : réseaux denses, mini-batches matriciels,
+régression et classification, SGD/Momentum/Adam, validation et checkpoints,
+différentiation automatique matricielle, et tenseurs CPU ou CUDA résidents.
+Les kernels CUDA sont compilés en C++17.
 
-## Construire et tester
+## Construire
 
 ```sh
 cmake -S . -B build-cpu -DML_ENABLE_CUDA=OFF -DBUILD_TESTING=ON -DML_BUILD_EXAMPLES=ON
-cmake --build build-cpu --config Debug
-ctest --test-dir build-cpu -C Debug --output-on-failure
+cmake --build build-cpu --config Release
+ctest --test-dir build-cpu -C Release --output-on-failure
 ```
 
-Les cibles ``clarni_example_matrix``, ``clarni_example_network`` et ``clarni_example_xor``
-sont trois executables distincts.
-
-Pour CUDA sous Windows, utiliser la toolchain MSVC amd64 puis :
+Sous Windows/CLion, utiliser MSVC amd64 pour CUDA :
 
 ```sh
-cmake -S . -B build-cuda -DML_ENABLE_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=89
-cmake --build build-cuda --config Debug
-ctest --test-dir build-cuda -C Debug --output-on-failure
+cmake -S . -B build-cuda -DML_ENABLE_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=89 -DML_BUILD_BENCHMARKS=ON
+cmake --build build-cuda --config Release
+ctest --test-dir build-cuda -C Release --output-on-failure
 ```
 
-## Utilisation
+89 reprend le projet initial : adapter aux GPU cibles. Le kernel de réduction
+FP64 demande une architecture CUDA au moins 6.0. Le toolkit doit aussi prendre
+cette architecture en charge. Les deux tests matériels sont ignorés sans GPU.
+
+Pour comparer avec cuBLAS, configurer un autre dossier avec `-DML_USE_CUBLAS=ON`
+et `-DML_ENABLE_CUDA=ON`. Cette option ajoute une dépendance runtime cuBLAS ;
+sous Windows les DLL correspondantes doivent être disponibles. Elle est OFF
+par défaut. La runtime CUDA de base est liée statiquement.
+
+## API dense conservée
 
 ```cpp
-ml::initialize_compute(ml::Backend::Auto); // Avant les threads et les calculs.
-ml::NeuralNetwork net(2, 0.8, ml::NeuralNetwork::MINI_BATCH,
-                      ml::NeuralNetwork::SIMPLE, 42);
-net.add_layer(2, 4, ml::Layer::SIGMOID);
-net.add_layer(4, 1, ml::Layer::SIGMOID);
-const ml::Dataset data(std::vector<ml::Sample>{
-    {{0,0},{0}}, {{0,1},{1}}, {{1,0},{1}}, {{1,1},{0}}
-});
-const auto losses = net.learn(data, 20000, 2, true);
-const auto prediction = net.output({0, 1});
+ml::initialize_compute(ml::Backend::Auto);
+ml::NeuralNetwork net(2, 0.02, ml::NeuralNetwork::MINI_BATCH,
+                      ml::NeuralNetwork::CROSS_ENTROPY, 42);
+net.add_layer(2, 8, ml::Layer::TANH);
+net.add_layer(8, 3, ml::Layer::SOFTMAX);
+ml::OptimizerOptions optimizer;
+optimizer.kind = ml::OptimizerKind::Adam;
+net.set_optimizer(optimizer);
+net.learn(dataset, 300, 32, true);
 ```
 
-NeuralNetwork initialise chaque couche en Xavier uniforme, avec biais nuls.
-La graine par defaut est 42 ; la fournir en cinquieme argument pour la changer.
-Les tirages sont reproductibles avec la meme bibliotheque standard ; la
-distribution uniforme n'a pas une sequence bit a bit garantie entre stdlibs.
+Les anciens appels avec `SIMPLE`, `SIGMOID`, `Layer::forward/backward/step` et
+`Matrix * Vector` restent disponibles. `SIMPLE` conserve la demi-somme des
+carrés par exemple. Les pertes BCE et CE exigent respectivement une sortie
+SIGMOID et SOFTMAX et calculent leur gradient directement sur les logits.
 
-## Conventions mathematiques
+## Objets et conventions
 
-- Matrix(lignes, colonnes), indices commencant a zero, stockage contigu.
-- Une couche de N entrées et M neurones utilise Matrix(M, N+1).
-- La colonne 0 contient les biais. Le dataset fournit N valeurs, sans le 1.
-- forward memorise [1, input...] et les activations ; output est const et ne
-  modifie pas les caches.
-- backward recoit dL/da, applique la derivee de l'activation element par element,
-  accumule le produit exterieur $delta\times [1,input...]$ et renvoie $W_{sans-biais}^T\times delta$.
-- SIMPLE = $\frac{1}{2} \sum_k (prediction_k-target_k)^2$ pour un exemple.
-  simple() renvoie son gradient prediction-target ; simple_loss() sa valeur.
-- mean_loss fait la moyenne sur les exemples, pas sur les sorties.
-- step applique la moyenne des gradients du groupe. Les poids restent fixes
-  pendant tous les forwards/backwards de ce groupe, puis sont mis a jour.
+| Objet | Contrat |
+| --- | --- |
+| Matrix / Vector | Conteneurs hôtes historiques ; Vector conserve le stockage 1 × dim |
+| Tensor | Valeur matricielle immuable CPU ou CUDA, copies partageant un stockage non modifié |
+| Layer | Poids M × (N+1), biais en colonne 0 ; initialisation automatique via add_layer |
+| NeuralNetwork | Mini-batches en colonnes, backward analytique dense, optimiseur et RNG persistants |
+| StandardScaler | Statistiques ajustées uniquement sur l'entraînement, sauvegarde séparée |
+| ad::Variable | Graphe reverse-mode distinct du réseau dense, sur des Tensor de rang 2 |
 
-Vector conserve son stockage 1 x dim pour compatibilite. M*v utilise la
-surcharge libre qui l'interprete comme une colonne algebrique : ecrire M*v,
-pas M.operator*(v). Vector*Vector n'est pas un produit Hadamard ; backward
-emploie donc des boucles explicites pour cette operation.
+Pour un batch : X a N lignes et B colonnes. Le forward calcule W*[1;X].
+Le backward accumule les gradients non moyennés ; la division par B a lieu
+une seule fois avant l'optimiseur. La pénalité L2 est ajoutée après cette
+moyenne et exclut la colonne des biais.
 
-## Modes d'apprentissage
+AUTO choisit min(32,N) si batch_size vaut 0 ; MINI_BATCH demande une taille
+explicite positive. ONLINE et BATCH choisissent respectivement 1 et N.
+Le shuffle repart d'indices canoniques à chaque époque, pour reprendre un
+checkpoint avec le seul état du RNG. La séquence reste dépendante de la
+bibliothèque standard utilisée : pas de promesse bit à bit inter-plateformes.
 
-| Mode       | Taille de groupe                                                    |
-|------------|---------------------------------------------------------------------|
-| ONLINE     | 1, argument batch_size ignore                                       |
-| BATCH      | N exemples, argument batch_size ignore                              |
-| MINI_BATCH | Taille explicite strictement positive, bornee a N                   |
-| AUTO       | Si batch_size vaut 0, min(32,N) ; sinon taille explicite bornee a N |
+## Généralisation et sauvegarde
 
-Le defaut de learn est batch_size=0. Avec MINI_BATCH, passer donc explicitement
-la taille : net.learn(data, epochs, 32). Le dernier groupe est divise par son
-nombre reel d'exemples. shuffle=false conserve l'ordre des donnees.
+Utiliser `split_dataset`, puis `StandardScaler::fit` sur l'entraînement et
+`transform` sur les trois ensembles. Un split avec shuffle=false conserve
+l'ordre temporel. Les fractions sont arrondies vers le bas ; vérifier qu'un
+petit dataset produit une validation non vide avant fit.
 
-## Inspection et couches seules
+`fit(training, validation, options)` mesure les pertes non régularisées et
+restaure le meilleur état complet : poids, optimiseur, RNG. `min_delta` pilote
+la patience sans empêcher la conservation du véritable minimum observé.
+`best_epoch=0` signifie que l'état initial est le meilleur. `objective_loss`
+ajoute la pénalité L2 pour inspecter l'objectif régularisé.
 
-get()/operator[] renvoient des references controlees avec at(). set_weights()
-verifie la forme M x (N+1) et les valeurs finies, puis invalide cache et gradients.
-get_weights() et get_gradients() exposent des references const pour les tests
-et l'inspection, sans permettre des modifications sauvages.
+`net.save(path)` et `NeuralNetwork::load(path)` conservent architecture, perte,
+hyperparamètres, poids/biais, moments et compteurs de l'optimiseur, RNG et L2.
+Les checkpoints sont destinés aux frontières d'époques ; caches et gradients
+d'un batch partiellement calculé ne sont pas sauvegardés. Utiliser les setters
+contrôlés pour modifier des poids ; remplacer arbitrairement un Layer en cours
+d'entraînement n'est pas une opération de gestion d'état supportée.
 
-Une Layer construite seule garde des poids nuls jusqu'a init_random() ou
-set_weights(), ce qui permet des tests numeriques explicites. L'initialisation
-aleatoire est automatique pour les couches ajoutees a NeuralNetwork.
+Le scaler se sauvegarde et se recharge séparément. L'exemple pipeline montre
+la paire modèle + prétraitement. Les formats textuels sont versionnés et les
+dimensions/valeurs sont contrôlées à la lecture.
 
-## Tests
+## Autodiff
 
-Les tests fournis couvrent calculs Matrix/Vector, loss et derivee, biais,
-gradients par differences finies, cumul des gradients, gardes de l'API,
-equivalence des modes, dernier groupe incomplet, reproductibilite et XOR.
-Ils n'utilisent pas assert et restent actifs en Release.
+`ml::ad` fournit add, affine, matmul, hadamard, transpose, broadcast_columns,
+sum, mean, square, activate et loss. Les branches partagées additionnent leurs
+contributions. Chaque backward remet à zéro les gradients des nœuds accessibles
+avant le nouveau calcul ; ce comportement diffère de Layer::backward qui
+accumule jusqu'à zero_grad. Un nouveau graphe est créé après une mise à jour
+pour refléter les nouvelles valeurs immuables des paramètres.
 
-Le test dispatch utilise un faux backend uniquement pour verifier la selection
-exclusive CPU/CUDA et la propagation d'erreurs, sans lancer de GPU. Le test
-cuda, lui, compare reellement des resultats CPU/GPU si du materiel est disponible.
+Ce moteur est volontairement matriciel : pas de tenseurs ND, de mutation
+in-place, de gradients des cibles, ni de remplacement automatique du backward
+dense de NeuralNetwork. Il constitue un socle autonome pour étendre le graphe.
 
-## Limites
+## Résidence CUDA
 
-La selection de backend est globale : l'initialiser une fois au demarrage,
-avant les threads, et ne pas la modifier pendant des calculs concurrents.
-Les caches des couches ne sont pas prevus pour un entrainement concurrent.
+Initialiser le backend avant les objets et les threads ; ne pas le reconfigurer
+pendant des calculs. Pour l'API Tensor avancée, choisir explicitement le même
+backend pour les entrées et paramètres (Backend::Auto suit le backend choisi).
 
-Les poids restent en RAM. Le backend CUDA copie les entrees et resultats a
-chaque operation ; il ne calcule pas en plus le meme produit sur CPU. Les
-activations et le backward elementaire restent CPU. Cette version corrige
-les calculs ; elle n'annonce pas un entrainement entier resident en VRAM ni
-une acceleration mesuree. Le noyau GEMM est volontairement simple.
+Sur CUDA, les poids, moments d'Adam et intermédiaires Tensor restent en VRAM.
+Les batches X/Y sont envoyés depuis le dataset hôte. Les lectures de matrices,
+prédictions hôtes et checkpoints déclenchent les copies nécessaires. Les
+réductions de contrôle et de loss rapatrient des scalaires, pas les poids.
+`synchronize()` attend explicitement la fin des opérations sans lire une matrice.
+
+Les buffers sont libérés par RAII. L'implémentation alloue encore de nombreux
+résultats intermédiaires ; ce n'est pas un allocateur à pool ni un moteur de
+fusion. Le GEMM CUDA de référence reste simple ; cuBLAS est optionnel. Aucune
+accélération n'est garantie. Le chemin historique Matrix continue à transférer
+ses données opération par opération ; le réseau utilise maintenant Tensor.
+
+## Exemples et benchmarks
+
+- `clarni_example_matrix` : produit rectangulaire connu.
+- `clarni_example_network` : forward dense.
+- `clarni_example_xor` : apprentissage XOR.
+- `clarni_example_classification` : softmax à trois classes avec Adam.
+- `clarni_example_pipeline [modèle.clarni]` : split, scaler, validation,
+  arrêt anticipé, test tenu à part et éventuellement sauvegarde/rechargement.
+- `clarni_example_autograd` : gradient d'un graphe à branches partagées.
+
+Avec ML_BUILD_BENCHMARKS=ON : `clarni_benchmark_device`. Le temps mesuré inclut
+allocations et synchronisation ; le mode recreate/upload inclut les copies
+d'entrées. L'échauffement et la lecture du checksum final sont hors mesure.
+Comparer des configurations identiques, et ne pas assimiler ce temps à celui
+d'un kernel GEMM isolé. Les compteurs enregistrent les buffers Tensor et les
+transferts explicites ; les petits flags de validation ne sont pas comptés
+comme allocations Tensor.
+
+## Vérification sans CMake
+
+Sur un environnement GCC, `python3 tools/verify_cpu.py` compile et exécute les
+tests sans dépendance tierce. Pour ASan/UBSan :
+
+```sh
+python3 tools/verify_cpu.py --sanitize --build build-sanitized
+```
+
+Dans les environnements qui bloquent LeakSanitizer via /proc, ajouter
+`--no-leak-check`. Cela ne constitue pas un test des fuites mémoire.
+Le test residency_mock est une simulation du protocole et des transferts ;
+il ne valide pas les kernels. Les tests cuda/residency nécessitent du matériel.
+
+Voir `docs/EVOLUTION.md` pour les formules, les choix et les limites de validation.
