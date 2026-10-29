@@ -69,7 +69,7 @@ namespace ml::gpu::resident
         return new double[count];
     }
 
-    void release(const double* pointer, int) noexcept { delete[] pointer; }
+    void release(double* pointer, int) noexcept { delete[] pointer; } // NOLINT(*-non-const-parameter)
 
     void fill(double* pointer, const std::size_t count, const double value, int)
     {
