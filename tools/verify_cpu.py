@@ -33,13 +33,17 @@ if library.exists():
     library.unlink()
 subprocess.run(["ar", "rcs", str(library), *objects], check=True)
 records = []
-for source in sorted((root / "tests").glob("test_*.cpp")):
-    name = source.stem
+cases = [(source.stem, source) for source in sorted((root / "tests").glob("test_*.cpp"))]
+cases.append(("test_residency_mock", root / "tests/test_residency.cpp"))
+for name, source in cases:
     sources = [str(source), str(library)]
     if name == "test_dispatch":
         sources = [str(source), "src/matrix.cpp", "src/compute_device.cpp"]
     executable = build / name
     defines = ["-DCLARNI_EXPECT_CUDA=0"] if name == "test_device" else []
+    if name == "test_residency_mock":
+        sources = [str(source), str(root / "tests/mock_resident_backend.cpp"), str(library)]
+        defines = ["-DCLARNI_MOCK_GPU=1"]
     compiled = run(["g++", *flags, *defines, *sources, "-o", str(executable)])
     if compiled.returncode:
         print(compiled.stdout + compiled.stderr)

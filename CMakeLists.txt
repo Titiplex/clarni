@@ -22,26 +22,27 @@ if (ML_ENABLE_CUDA)
     set(ML_CUDA_BUILT ON)
 endif ()
 
-add_library(ML STATIC
+set(ML_CORE_SOURCES
         src/layer.cpp
         src/matrix.cpp
         src/network.cpp
         src/dataset.cpp
-        src/compute_device.cpp)
-target_sources(ML PRIVATE src/tensor.cpp src/optimizer.cpp src/preprocessing.cpp src/checkpoint.cpp src/autograd.cpp)
+        src/compute_device.cpp
+        src/tensor.cpp src/optimizer.cpp src/preprocessing.cpp src/checkpoint.cpp src/autograd.cpp)
+add_library(ML STATIC ${ML_CORE_SOURCES})
 add_library(clarni::ML ALIAS ML)
 target_include_directories(ML PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/headers")
 target_compile_features(ML PUBLIC cxx_std_23)
 
 if (ML_CUDA_BUILT)
-    target_sources(ML PRIVATE src/gpu/matrix.cu)
+    target_sources(ML PRIVATE src/gpu/matrix.cu src/gpu/tensor.cu)
     target_link_libraries(ML PRIVATE CUDA::cudart_static)
     target_compile_definitions(ML PRIVATE HAS_CUDA=1 HAS_CUDA_KERNELS=1)
     set_target_properties(ML PROPERTIES
             CUDA_STANDARD 17 CUDA_STANDARD_REQUIRED ON CUDA_EXTENSIONS OFF
             CUDA_RUNTIME_LIBRARY Static)
 else ()
-    target_sources(ML PRIVATE src/gpu/backend_stub.cpp)
+    target_sources(ML PRIVATE src/gpu/backend_stub.cpp src/gpu/tensor_stub.cpp)
     # Ne pas definir HAS_CUDA=0 si votre futur code utilise #ifdef HAS_CUDA.
 endif ()
 
