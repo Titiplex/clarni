@@ -33,7 +33,7 @@ set(ML_CORE_SOURCES
         src/network.cpp
         src/dataset.cpp
         src/compute_device.cpp
-        src/tensor.cpp src/optimizer.cpp src/preprocessing.cpp src/checkpoint.cpp src/autograd.cpp src/nd.cpp src/module.cpp src/embedding.cpp src/convolution.cpp src/recurrent.cpp)
+        src/tensor.cpp src/optimizer.cpp src/preprocessing.cpp src/checkpoint.cpp src/autograd.cpp src/nd.cpp src/module.cpp src/embedding.cpp src/convolution.cpp src/recurrent.cpp src/gated_recurrent.cpp)
 add_library(ML STATIC ${ML_CORE_SOURCES})
 add_library(clarni::ML ALIAS ML)
 target_include_directories(ML PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/headers")
