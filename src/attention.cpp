@@ -1,4 +1,5 @@
 #include "attention.h"
+#include <cmath>
 #include <algorithm>
 #include <limits>
 #include <stdexcept>

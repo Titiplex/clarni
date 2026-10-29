@@ -1,4 +1,4 @@
-foreach (component matrix functions network device gradients modes activations tensor optimizers tasks training checkpoints autograd residency cuda nd embedding convolution recurrent gated_recurrent attention)
+foreach (component matrix functions network device gradients modes activations tensor optimizers tasks training checkpoints autograd residency cuda nd embedding convolution recurrent gated_recurrent attention inference)
     add_executable(clarni_test_${component} test_${component}.cpp)
     target_link_libraries(clarni_test_${component} PRIVATE ML)
     add_test(NAME clarni.${component} COMMAND clarni_test_${component})
@@ -22,3 +22,6 @@ add_executable(clarni_test_dispatch test_dispatch.cpp
         "${PROJECT_SOURCE_DIR}/src/compute_device.cpp")
 target_include_directories(clarni_test_dispatch PRIVATE "${PROJECT_SOURCE_DIR}/headers")
 add_test(NAME clarni.dispatch COMMAND clarni_test_dispatch)
+
+find_package(Threads REQUIRED)
+target_link_libraries(clarni_test_inference PRIVATE Threads::Threads)

@@ -1,4 +1,5 @@
 #pragma once
+#include <cstddef>
 #include "matrix.h"
 #include "compute_device.h"
 #include "tensor_backend.h"
