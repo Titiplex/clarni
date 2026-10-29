@@ -1,5 +1,4 @@
 #include "gated_recurrent.h"
-#include <cmath>
 #include <stdexcept>
 
 namespace ml::nn

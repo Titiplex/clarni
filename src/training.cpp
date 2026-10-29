@@ -1,43 +1,47 @@
 #include "training.h"
 #include <algorithm>
-#include <cmath>
 #include <numbers>
 #include <stdexcept>
+
 namespace ml::training
 {
     namespace
     {
         class ModeGuard
         {
-            nn::Module &model_;
+            nn::Module& model_;
             bool previous_;
 
-          public:
-            ModeGuard(nn::Module &model, bool mode) : model_(model), previous_(model.training())
+        public:
+            ModeGuard(nn::Module& model, bool mode) : model_(model), previous_(model.training())
             {
                 model_.train(mode);
             }
+
             ~ModeGuard()
             {
                 model_.train(previous_);
             }
         };
+
         class LoaderGuard
         {
-            data::DataLoader &loader_;
+            data::DataLoader& loader_;
             data::LoaderState previous_;
 
-          public:
-            explicit LoaderGuard(data::DataLoader &loader)
+        public:
+            explicit LoaderGuard(data::DataLoader& loader)
                 : loader_(loader), previous_(loader.state())
             {
             }
+
             ~LoaderGuard()
             {
                 loader_.restore(previous_);
             }
         };
-        void validate_evaluation(const data::DataLoader &loader)
+
+        void validate_evaluation(const data::DataLoader& loader)
         {
             if (loader.options().shuffle || loader.options().drop_last)
                 throw std::invalid_argument(
@@ -46,8 +50,8 @@ namespace ml::training
                 throw std::invalid_argument("Empty evaluation dataset");
         }
     } // namespace
-    ClassificationMetrics::ClassificationMetrics(int classes, int ignore)
-        : classes_(classes), ignore_(ignore)
+    ClassificationMetrics::ClassificationMetrics(const int classes, int ignore_index)
+        : classes_(classes), ignore_(ignore_index)
     {
         if (classes <= 0)
             throw std::invalid_argument("Invalid metric class count");
@@ -55,8 +59,9 @@ namespace ml::training
         fp_.assign(classes, 0);
         fn_.assign(classes, 0);
     }
-    void ClassificationMetrics::add(const nd::Array &logits, const std::vector<int> &targets,
-                                    double mean_loss)
+
+    void ClassificationMetrics::add(const nd::Array& logits, const std::vector<int>& targets,
+                                    const double mean_loss)
     {
         if (logits.shape().empty() || logits.shape().back() != classes_ ||
             logits.size() / classes_ != targets.size() || !std::isfinite(mean_loss) ||
@@ -64,19 +69,19 @@ namespace ml::training
             throw std::invalid_argument("Invalid metric logits/targets/loss");
         const auto values = logits.variable().value().cpu_values();
         // Validate before updating accumulated statistics.
-        for (int label : targets)
+        for (const int label : targets)
             if (label != ignore_ && (label < 0 || label >= classes_))
                 throw std::invalid_argument("Invalid metric label");
-        for (double v : values)
+        for (const double v : values)
             if (!std::isfinite(v))
                 throw std::invalid_argument("Non-finite metric logits");
         for (std::size_t i = 0; i < targets.size(); ++i)
         {
-            int target = targets[i];
+            const int target = targets[i];
             if (target == ignore_)
                 continue;
             auto first = values.begin() + static_cast<std::ptrdiff_t>(i * classes_);
-            int predicted = static_cast<int>(std::max_element(first, first + classes_) - first);
+            const int predicted = static_cast<int>(std::max_element(first, first + classes_) - first);
             ++count_;
             mean_loss_ += (static_cast<long double>(mean_loss) - mean_loss_) / count_;
             if (predicted == target)
@@ -91,6 +96,7 @@ namespace ml::training
             }
         }
     }
+
     Metrics ClassificationMetrics::result() const
     {
         if (!count_)
@@ -98,7 +104,7 @@ namespace ml::training
         Metrics m;
         m.count = count_;
         m.loss = static_cast<double>(mean_loss_);
-        m.accuracy = double(correct_) / count_;
+        m.accuracy = static_cast<double>(correct_) / count_;
         for (int c = 0; c < classes_; ++c)
         {
             double denom = 2.0 * tp_[c] + fp_[c] + fn_[c];
@@ -111,8 +117,9 @@ namespace ml::training
                            : std::exp(m.loss);
         return m;
     }
-    Metrics SupervisedTrainer::evaluate(data::DataLoader &loader, const Forward &forward,
-                                        int classes, int ignore)
+
+    Metrics SupervisedTrainer::evaluate(data::DataLoader& loader, const Forward& forward,
+                                        const int classes, int ignore_index) const
     {
         if (!forward)
             throw std::invalid_argument("Missing forward callback");
@@ -121,19 +128,20 @@ namespace ml::training
         ad::NoGradGuard no_grad;
         LoaderGuard restore(loader);
         loader.reset_epoch();
-        ClassificationMetrics metrics(classes, ignore);
+        ClassificationMetrics metrics(classes, ignore_index);
         while (auto batch = loader.next())
         {
-            if (!batch->valid_targets(ignore))
+            if (!batch->valid_targets(ignore_index))
                 continue;
             auto logits = forward(*batch);
-            double loss = nd::cross_entropy(logits, batch->targets, ignore).item();
+            const double loss = nd::cross_entropy(logits, batch->targets, ignore_index).item();
             metrics.add(logits, batch->targets, loss);
         }
         return metrics.result();
     }
-    FitResult SupervisedTrainer::fit(data::DataLoader &training, data::DataLoader &validation,
-                                     const Forward &forward, const FitOptions &options)
+
+    FitResult SupervisedTrainer::fit(data::DataLoader& training, data::DataLoader& validation,
+                                     const Forward& forward, const FitOptions& options)
     {
         if (!ad::grad_enabled())
             throw std::logic_error("fit cannot run inside NoGradGuard");
@@ -172,7 +180,8 @@ namespace ml::training
             }
             EpochResult record{
                 epoch + 1, rate, metrics.result(),
-                evaluate(validation, forward, options.classes, options.ignore_index)};
+                evaluate(validation, forward, options.classes, options.ignore_index)
+            };
             result.history.push_back(record);
             // Track the actual lowest validation loss; min_delta controls patience only.
             if (record.validation.loss < best)
@@ -182,7 +191,7 @@ namespace ml::training
                 if (options.restore_best)
                 {
                     best_values.clear();
-                    for (auto &p : params)
+                    for (auto& p : params)
                         best_values.push_back(p.parameter->value().detach());
                     best_optimizer = trainer_.optimizer().states();
                     best_loader = training.state();
@@ -212,31 +221,36 @@ namespace ml::training
         }
         return result;
     }
-    std::function<double(std::size_t)> cosine_schedule(double rate, double minimum,
-                                                       std::size_t epochs, std::size_t warmup)
+
+    std::function<double(std::size_t)> cosine_schedule(const double rate, const double min_rate,
+                                                       const std::size_t epochs, std::size_t warmup_epochs)
     {
-        if (!std::isfinite(rate) || !std::isfinite(minimum) || rate <= 0 || minimum <= 0 ||
-            minimum > rate || !epochs || warmup >= epochs)
+        if (!std::isfinite(rate) || !std::isfinite(min_rate) || rate <= 0 || min_rate <= 0 ||
+            min_rate > rate || !epochs || warmup_epochs >= epochs)
             throw std::invalid_argument("Invalid cosine schedule");
-        return [=](std::size_t epoch)
+        return [=](const std::size_t epoch)
         {
             if (epoch >= epochs)
                 throw std::out_of_range("Schedule epoch");
-            if (epoch < warmup)
-                return rate * double(epoch + 1) / double(warmup);
-            auto remaining = epochs - warmup;
-            double progress = remaining == 1 ? 0.0 : double(epoch - warmup) / double(remaining - 1);
-            return minimum + (rate - minimum) * .5 * (1 + std::cos(std::numbers::pi * progress));
+            if (epoch < warmup_epochs)
+                return rate * static_cast<double>(epoch + 1) / static_cast<double>(warmup_epochs);
+            const auto remaining = epochs - warmup_epochs;
+            const double progress = remaining == 1
+                                        ? 0.0
+                                        : static_cast<double>(epoch - warmup_epochs) / static_cast<double>(remaining -
+                                            1);
+            return min_rate + (rate - min_rate) * .5 * (1 + std::cos(std::numbers::pi * progress));
         };
     }
-    std::function<double(std::size_t)> step_schedule(double rate, std::size_t every, double factor)
+
+    std::function<double(std::size_t)> step_schedule(const double rate, const std::size_t every, const double factor)
     {
         if (!std::isfinite(rate) || rate <= 0 || !every || !std::isfinite(factor) || factor <= 0 ||
             factor > 1)
             throw std::invalid_argument("Invalid step schedule");
-        return [=](std::size_t epoch)
+        return [=](const std::size_t epoch)
         {
-            double next = rate * std::pow(factor, double(epoch / every));
+            const double next = rate * std::pow(factor, static_cast<double>(epoch / every));
             if (!std::isfinite(next) || next <= 0)
                 throw std::underflow_error("Learning rate underflow");
             return next;

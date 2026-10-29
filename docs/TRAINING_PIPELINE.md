@@ -8,20 +8,20 @@ application MNIST complète. Les anciennes API restent disponibles.
 
 ## Périmètre livré
 
-| Élément | Résultat |
-|---|---|
-| En-têtes autonomes | Includes mathématiques et de tailles explicites ; outil de vérification |
-| Autograd | Parcours et destruction itératifs ; gradients alloués à leur première contribution |
-| Inférence | `ad::NoGradGuard` local au thread, imbriquable, indépendant de `eval()` |
-| Stockage CPU | Adoption d'un vecteur, accès en lecture sans copie, suppression du détour par Matrix dans le frontend N-D |
-| Broadcasting | Cas identité sans copie ni nœud supplémentaire |
-| Attention | Produits matriciels par lots avec gradients et broadcasting des axes de batch |
-| Données | Dataset, Subset, split reproductible, lots typés, padding et longueurs |
-| Chargement | Mélange déterministe dans un environnement donné et reprise exacte du sampler |
-| Apprentissage | Boucle entraînement/validation commune, métriques masquées et arrêt anticipé |
-| Meilleur état | Paramètres, moments et compteurs d'Adam, ordre et RNG du loader d'entraînement |
-| Applications | CNN sur fichiers MNIST réels et GRU sur séquences synthétiques de longueurs différentes |
-| Mesure | Benchmark forward avec/sans enregistrement du graphe |
+| Élément            | Résultat                                                                                                  |
+|--------------------|-----------------------------------------------------------------------------------------------------------|
+| En-têtes autonomes | Includes mathématiques et de tailles explicites ; outil de vérification                                   |
+| Autograd           | Parcours et destruction itératifs ; gradients alloués à leur première contribution                        |
+| Inférence          | `ad::NoGradGuard` local au thread, imbriquable, indépendant de `eval()`                                   |
+| Stockage CPU       | Adoption d'un vecteur, accès en lecture sans copie, suppression du détour par Matrix dans le frontend N-D |
+| Broadcasting       | Cas identité sans copie ni nœud supplémentaire                                                            |
+| Attention          | Produits matriciels par lots avec gradients et broadcasting des axes de batch                             |
+| Données            | Dataset, Subset, split reproductible, lots typés, padding et longueurs                                    |
+| Chargement         | Mélange déterministe dans un environnement donné et reprise exacte du sampler                             |
+| Apprentissage      | Boucle entraînement/validation commune, métriques masquées et arrêt anticipé                              |
+| Meilleur état      | Paramètres, moments et compteurs d'Adam, ordre et RNG du loader d'entraînement                            |
+| Applications       | CNN sur fichiers MNIST réels et GRU sur séquences synthétiques de longueurs différentes                   |
+| Mesure             | Benchmark forward avec/sans enregistrement du graphe                                                      |
 
 Ce lot ne porte pas les opérations N-D sur CUDA, ne change pas le type `double`
 en `float32`, et n'ajoute pas de vues à strides arbitraires. Dropout, AdamW,
@@ -112,11 +112,11 @@ Le constructeur crée un loader initialement épuisé. `reset_epoch()` commence
 une nouvelle époque et applique le mélange demandé. `next()` renvoie `nullopt`
 en fin d'époque. `drop_last=false` conserve le dernier lot incomplet.
 
-| Collateur | Entrées par exemple | Entrée du batch | Cibles |
-|---|---|---|---|
-| `Stack` | Array de forme fixe `[...]` | Array `[B,...]` | Une classe par exemple |
-| `PadTokens` | `vector<int>` de longueur T | `TokenBatch` `[B,Tmax]` | Classe ou séquence |
-| `PadFeatures` | Array `[T,...features]` | Array `[B,Tmax,...features]` | Classe ou séquence |
+| Collateur     | Entrées par exemple         | Entrée du batch              | Cibles                 |
+|---------------|-----------------------------|------------------------------|------------------------|
+| `Stack`       | Array de forme fixe `[...]` | Array `[B,...]`              | Une classe par exemple |
+| `PadTokens`   | `vector<int>` de longueur T | `TokenBatch` `[B,Tmax]`      | Classe ou séquence     |
+| `PadFeatures` | Array `[T,...features]`     | Array `[B,Tmax,...features]` | Classe ou séquence     |
 
 Les identifiants de tokens restent des entiers. Les séquences d'entrée vides
 sont refusées. Les features de padding valent zéro ; les tokens utilisent
@@ -307,14 +307,14 @@ premiers N exemples du split concerné avant le split train/validation.
 
 Le dossier de sortie contient :
 
-| Fichier | Contenu |
-|---|---|
-| `config.txt` | Architecture, backend, dtype, graine et options de l'essai |
-| `epochs.csv` | Courbes train/validation et nombres de cibles |
-| `training_indices.csv`, `validation_indices.csv` | Positions dans le split d'entraînement chargé |
-| `best.nn` | Meilleurs paramètres et état d'Adam |
-| `training.loader` | État du loader de cette meilleure époque |
-| `metrics.txt` | Meilleure époque et métriques finales validation/test |
+| Fichier                                          | Contenu                                                    |
+|--------------------------------------------------|------------------------------------------------------------|
+| `config.txt`                                     | Architecture, backend, dtype, graine et options de l'essai |
+| `epochs.csv`                                     | Courbes train/validation et nombres de cibles              |
+| `training_indices.csv`, `validation_indices.csv` | Positions dans le split d'entraînement chargé              |
+| `best.nn`                                        | Meilleurs paramètres et état d'Adam                        |
+| `training.loader`                                | État du loader de cette meilleure époque                   |
+| `metrics.txt`                                    | Meilleure époque et métriques finales validation/test      |
 
 Les fichiers connus de ce dossier sont remplacés si l'on réutilise le même
 `--output`. Utiliser un dossier différent par expérience.

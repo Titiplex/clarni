@@ -7,54 +7,58 @@
 #include <numeric>
 #include <sstream>
 #include <stdexcept>
+
 namespace ml::data
 {
-    std::size_t Batch::valid_targets(int ignore) const
+    std::size_t Batch::valid_targets(const int ignore_index) const
     {
         return static_cast<std::size_t>(
-            std::count_if(targets.begin(), targets.end(), [=](int y) { return y != ignore; }));
+            std::ranges::count_if(targets, [=](const int y) { return y != ignore_index; }));
     }
+
     Subset::Subset(std::shared_ptr<const Dataset> source, std::vector<std::size_t> indices)
         : source_(std::move(source)), indices_(std::move(indices))
     {
         if (!source_)
             throw std::invalid_argument("Null subset dataset");
-        for (auto i : indices_)
+        for (const auto i : indices_)
             if (i >= source_->size())
                 throw std::out_of_range("Subset index");
     }
-    Split random_split(std::size_t size, std::size_t validation, std::size_t test,
-                       std::uint32_t seed)
+
+    Split random_split(const std::size_t size, const std::size_t validation, const std::size_t test,
+                       const std::uint32_t seed)
     {
         if (validation > size || test > size - validation)
             throw std::invalid_argument("Invalid split sizes");
         std::vector<std::size_t> order(size);
         std::iota(order.begin(), order.end(), 0);
         std::mt19937 rng(seed);
-        std::shuffle(order.begin(), order.end(), rng);
+        std::ranges::shuffle(order, rng);
         auto train_end = order.begin() + static_cast<std::ptrdiff_t>(size - validation - test),
              valid_end = train_end + static_cast<std::ptrdiff_t>(validation);
         return {{order.begin(), train_end}, {train_end, valid_end}, {valid_end, order.end()}};
     }
-    Collator make_collator(CollateOptions opts)
+
+    Collator make_collator(CollateOptions options)
     {
-        if (opts.input != InputLayout::Stack && opts.input != InputLayout::PadTokens &&
-            opts.input != InputLayout::PadFeatures)
+        if (options.input != InputLayout::Stack && options.input != InputLayout::PadTokens &&
+            options.input != InputLayout::PadFeatures)
             throw std::invalid_argument("Unknown input layout");
-        if (opts.targets != TargetLayout::Class && opts.targets != TargetLayout::Sequence)
+        if (options.targets != TargetLayout::Class && options.targets != TargetLayout::Sequence)
             throw std::invalid_argument("Unknown target layout");
-        if (opts.input == InputLayout::Stack && opts.targets != TargetLayout::Class)
+        if (options.input == InputLayout::Stack && options.targets != TargetLayout::Class)
             throw std::invalid_argument("Stack collator requires class targets");
-        if (opts.padding_id < 0)
+        if (options.padding_id < 0)
             throw std::invalid_argument("Negative padding ID");
-        return [opts](const std::vector<Example> &examples,
-                      const std::vector<std::size_t> &indices) -> Batch
+        return [options](const std::vector<Example>& examples,
+                         const std::vector<std::size_t>& indices) -> Batch
         {
             if (examples.empty() || examples.size() != indices.size() ||
-                examples.size() > std::size_t((std::numeric_limits<int>::max)()))
+                examples.size() > static_cast<std::size_t>((std::numeric_limits<int>::max)()))
                 throw std::invalid_argument("Invalid collate batch");
             const int batch = static_cast<int>(examples.size());
-            if (opts.input == InputLayout::Stack)
+            if (options.input == InputLayout::Stack)
             {
                 if (!std::holds_alternative<nd::Array>(examples[0].input))
                     throw std::invalid_argument("Stack expects arrays");
@@ -64,7 +68,7 @@ namespace ml::data
                 nd::Vector values;
                 values.reserve(nd::numel(shape));
                 std::vector<int> targets;
-                for (auto &e : examples)
+                for (auto& e : examples)
                 {
                     if (!std::holds_alternative<nd::Array>(e.input) ||
                         std::get<nd::Array>(e.input).shape() != sample_shape ||
@@ -79,15 +83,15 @@ namespace ml::data
             std::vector<int> lengths;
             int maximum = 0;
             nd::Shape tail;
-            for (auto &e : examples)
+            for (auto& e : examples)
             {
                 int length;
-                if (opts.input == InputLayout::PadTokens)
+                if (options.input == InputLayout::PadTokens)
                 {
                     if (!std::holds_alternative<std::vector<int>>(e.input))
                         throw std::invalid_argument("Token collator expects integer sequences");
-                    auto &ids = std::get<std::vector<int>>(e.input);
-                    if (ids.empty() || ids.size() > std::size_t((std::numeric_limits<int>::max)()))
+                    auto& ids = std::get<std::vector<int>>(e.input);
+                    if (ids.empty() || ids.size() > static_cast<std::size_t>((std::numeric_limits<int>::max)()))
                         throw std::invalid_argument("Invalid token sequence length");
                     for (int id : ids)
                         if (id < 0)
@@ -109,31 +113,31 @@ namespace ml::data
                         throw std::invalid_argument("Sequence feature shape mismatch");
                 }
                 if (e.targets.size() !=
-                    (opts.targets == TargetLayout::Class ? 1 : static_cast<std::size_t>(length)))
+                    (options.targets == TargetLayout::Class ? 1 : static_cast<std::size_t>(length)))
                     throw std::invalid_argument("Target sequence length mismatch");
                 maximum = (std::max)(maximum, length);
                 lengths.push_back(length);
             }
             nd::Shape shape{batch, maximum};
             nd::numel(shape);
-            std::vector<int> targets(
-                opts.targets == TargetLayout::Class ? batch : std::size_t(batch) * maximum,
-                opts.ignore_index);
+            std::vector targets(
+                options.targets == TargetLayout::Class ? batch : static_cast<std::size_t>(batch) * maximum,
+                options.ignore_index);
             for (int b = 0; b < batch; ++b)
             {
-                if (opts.targets == TargetLayout::Class)
+                if (options.targets == TargetLayout::Class)
                     targets[b] = examples[b].targets[0];
                 else
-                    std::copy(examples[b].targets.begin(), examples[b].targets.end(),
-                              targets.begin() + std::size_t(b) * maximum);
+                    std::ranges::copy(examples[b].targets,
+                                      targets.begin() + static_cast<std::size_t>(b) * maximum);
             }
-            if (opts.input == InputLayout::PadTokens)
+            if (options.input == InputLayout::PadTokens)
             {
-                std::vector<int> values(std::size_t(batch) * maximum, opts.padding_id);
+                std::vector values(static_cast<std::size_t>(batch) * maximum, options.padding_id);
                 for (int b = 0; b < batch; ++b)
                 {
-                    auto &v = std::get<std::vector<int>>(examples[b].input);
-                    std::copy(v.begin(), v.end(), values.begin() + std::size_t(b) * maximum);
+                    auto& v = std::get<std::vector<int>>(examples[b].input);
+                    std::ranges::copy(v, values.begin() + static_cast<std::size_t>(b) * maximum);
                 }
                 return {nn::TokenBatch{values, shape}, targets, lengths, indices};
             }
@@ -143,11 +147,12 @@ namespace ml::data
             for (int b = 0; b < batch; ++b)
             {
                 auto v = std::get<nd::Array>(examples[b].input).values();
-                std::copy(v.begin(), v.end(), values.begin() + std::size_t(b) * maximum * features);
+                std::ranges::copy(v, values.begin() + static_cast<std::size_t>(b) * maximum * features);
             }
             return {nd::Array::from(shape, values), targets, lengths, indices};
         };
     }
+
     DataLoader::DataLoader(std::shared_ptr<const Dataset> data, LoaderOptions options,
                            Collator collator)
         : dataset_(std::move(data)), options_(std::move(options)), collate_(std::move(collator)),
@@ -159,21 +164,23 @@ namespace ml::data
         std::iota(order_.begin(), order_.end(), 0);
         cursor_ = order_.size();
     }
+
     void DataLoader::reset_epoch()
     {
         if (epoch_ == (std::numeric_limits<std::size_t>::max)())
             throw std::overflow_error("Epoch counter overflow");
         std::iota(order_.begin(), order_.end(), 0);
         if (options_.shuffle)
-            std::shuffle(order_.begin(), order_.end(), generator_);
+            std::ranges::shuffle(order_, generator_);
         cursor_ = 0;
         ++epoch_;
     }
+
     std::optional<Batch> DataLoader::next()
     {
         if (cursor_ == order_.size())
             return std::nullopt;
-        std::size_t n = (std::min)(options_.batch_size, order_.size() - cursor_);
+        const std::size_t n = (std::min)(options_.batch_size, order_.size() - cursor_);
         if (options_.drop_last && n < options_.batch_size)
         {
             cursor_ = order_.size();
@@ -193,16 +200,20 @@ namespace ml::data
         cursor_ += n;
         return result;
     }
+
     LoaderState DataLoader::state() const
     {
         std::ostringstream out;
         out << generator_;
-        return {order_,           cursor_,
-                epoch_,           options_.batch_size,
-                options_.shuffle, options_.drop_last,
-                out.str(),        options_.dataset_key};
+        return {
+            order_, cursor_,
+            epoch_, options_.batch_size,
+            options_.shuffle, options_.drop_last,
+            out.str(), options_.dataset_key
+        };
     }
-    void DataLoader::restore(const LoaderState &s)
+
+    void DataLoader::restore(const LoaderState& s)
     {
         if (s.order.size() != order_.size() || s.cursor > s.order.size() ||
             s.batch_size != options_.batch_size || s.shuffle != options_.shuffle ||
@@ -211,8 +222,8 @@ namespace ml::data
         if ((!s.epoch && s.cursor != s.order.size()) ||
             (s.cursor != s.order.size() && s.cursor % options_.batch_size))
             throw std::invalid_argument("Invalid loader cursor");
-        std::vector<bool> seen(s.order.size(), false);
-        for (auto i : s.order)
+        std::vector seen(s.order.size(), false);
+        for (const auto i : s.order)
         {
             if (i >= seen.size() || seen[i])
                 throw std::invalid_argument("Loader order is not a permutation");
@@ -231,7 +242,8 @@ namespace ml::data
         epoch_ = s.epoch;
         generator_ = rng;
     }
-    void DataLoader::save_state(const std::string &path) const
+
+    void DataLoader::save_state(const std::string& path) const
     {
         auto s = state();
         std::ofstream out(path);
@@ -248,7 +260,8 @@ namespace ml::data
         if (!out)
             throw std::runtime_error("Loader state write failed");
     }
-    void DataLoader::load_state(const std::string &path)
+
+    void DataLoader::load_state(const std::string& path)
     {
         std::ifstream in(path);
         std::string magic;
@@ -256,7 +269,7 @@ namespace ml::data
         std::size_t size;
         LoaderState s;
         if (!(in >> magic >> version >> size >> s.cursor >> s.epoch >> s.batch_size >> shuffle >>
-              drop) ||
+                drop) ||
             magic != "CLARNI_LOADER" || version != 1 || size != order_.size() || shuffle < 0 ||
             shuffle > 1 || drop < 0 || drop > 1)
             throw std::invalid_argument("Invalid loader state header");
@@ -265,7 +278,7 @@ namespace ml::data
         if (!(in >> std::quoted(s.dataset_key) >> std::quoted(s.rng)))
             throw std::invalid_argument("Invalid loader state metadata");
         s.order.resize(size);
-        for (auto &i : s.order)
+        for (auto& i : s.order)
             if (!(in >> i))
                 throw std::invalid_argument("Truncated loader order");
         in >> std::ws;
@@ -273,56 +286,58 @@ namespace ml::data
             throw std::invalid_argument("Trailing loader state");
         restore(s);
     }
+
     namespace
     {
-        std::uint32_t read_u32(std::istream &in)
+        std::uint32_t read_u32(std::istream& in)
         {
             unsigned char bytes[4];
-            if (!in.read(reinterpret_cast<char *>(bytes), 4))
+            if (!in.read(reinterpret_cast<char*>(bytes), 4))
                 throw std::invalid_argument("Truncated IDX header");
-            return (std::uint32_t(bytes[0]) << 24) | (std::uint32_t(bytes[1]) << 16) |
-                   (std::uint32_t(bytes[2]) << 8) | bytes[3];
+            return static_cast<std::uint32_t>(bytes[0]) << 24 | static_cast<std::uint32_t>(bytes[1]) << 16 |
+                static_cast<std::uint32_t>(bytes[2]) << 8 | bytes[3];
         }
     } // namespace
-    MNIST::MNIST(const std::string &images, const std::string &labels, std::size_t limit)
+    MNIST::MNIST(const std::string& images, const std::string& labels, std::size_t limit)
     {
         std::ifstream image_stream(images, std::ios::binary),
-            label_stream(labels, std::ios::binary);
+                      label_stream(labels, std::ios::binary);
         if (!image_stream || !label_stream)
             throw std::runtime_error("Cannot open raw MNIST IDX files");
         auto image_magic = read_u32(image_stream), count = read_u32(image_stream),
              rows = read_u32(image_stream), cols = read_u32(image_stream);
         auto label_magic = read_u32(label_stream), label_count = read_u32(label_stream);
         if (image_magic != 2051 || label_magic != 2049 || count != label_count || !count || !rows ||
-            !cols || rows > std::uint32_t((std::numeric_limits<int>::max)()) ||
-            cols > std::uint32_t((std::numeric_limits<int>::max)()))
+            !cols || rows > static_cast<std::uint32_t>((std::numeric_limits<int>::max)()) ||
+            cols > static_cast<std::uint32_t>((std::numeric_limits<int>::max)()))
             throw std::invalid_argument("Invalid MNIST IDX magic/count/shape");
         rows_ = static_cast<int>(rows);
         cols_ = static_cast<int>(cols);
         auto image_size = nd::numel({rows_, cols_});
         if (count > ((std::numeric_limits<std::uintmax_t>::max)() - 16) / image_size ||
-            std::filesystem::file_size(images) != 16 + std::uintmax_t(count) * image_size ||
-            std::filesystem::file_size(labels) != 8 + std::uintmax_t(count))
+            std::filesystem::file_size(images) != 16 + static_cast<std::uintmax_t>(count) * image_size ||
+            std::filesystem::file_size(labels) != 8 + static_cast<std::uintmax_t>(count))
             throw std::invalid_argument("MNIST IDX file size mismatch");
-        std::size_t n = limit ? (std::min)(limit, std::size_t(count)) : count;
+        std::size_t n = limit ? (std::min)(limit, static_cast<std::size_t>(count)) : count;
         if (n > pixels_.max_size() / image_size ||
-            n * image_size > std::size_t((std::numeric_limits<std::streamsize>::max)()))
+            n * image_size > static_cast<std::size_t>((std::numeric_limits<std::streamsize>::max)()))
             throw std::length_error("MNIST dataset too large");
         pixels_.resize(n * image_size);
         labels_.resize(n);
-        if (!image_stream.read(reinterpret_cast<char *>(pixels_.data()),
+        if (!image_stream.read(reinterpret_cast<char*>(pixels_.data()),
                                static_cast<std::streamsize>(pixels_.size())) ||
-            !label_stream.read(reinterpret_cast<char *>(labels_.data()),
+            !label_stream.read(reinterpret_cast<char*>(labels_.data()),
                                static_cast<std::streamsize>(labels_.size())))
             throw std::invalid_argument("Truncated MNIST dataset");
         for (unsigned char y : labels_)
             if (y > 9)
                 throw std::invalid_argument("MNIST label outside 0..9");
     }
-    Example MNIST::get(std::size_t i) const
+
+    Example MNIST::get(const std::size_t i) const
     {
         auto label = labels_.at(i);
-        auto count = std::size_t(rows_) * cols_;
+        const auto count = static_cast<std::size_t>(rows_) * cols_;
         nd::Vector values(count);
         for (std::size_t j = 0; j < count; ++j)
             values[j] = pixels_[i * count + j] / 255.0;

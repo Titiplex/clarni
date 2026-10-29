@@ -91,7 +91,7 @@ namespace ml
     }
 
     Tensor Tensor::from_values(const int rows, const int cols, std::vector<double> values,
-                              Backend backend)
+                               Backend backend)
     {
         if (checked_size(rows, cols) != values.size())
             throw std::invalid_argument("Tensor value count mismatch");

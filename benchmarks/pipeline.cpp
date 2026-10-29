@@ -3,10 +3,12 @@
 #include <cmath>
 #include <iostream>
 #include <stdexcept>
+
 namespace
 {
     using Clock = std::chrono::steady_clock;
-    double measure(ml::nn::Module &model, const ml::nd::Array &input, int iterations, bool no_grad)
+
+    double measure(ml::nn::Module& model, const ml::nd::Array& input, int iterations, bool no_grad)
     {
         auto run = [&]
         {
@@ -19,7 +21,7 @@ namespace
             if (!std::isfinite(checksum))
                 throw std::runtime_error("Invalid benchmark result");
         };
-        auto start = Clock::now();
+        const auto start = Clock::now();
         if (no_grad)
         {
             ml::ad::NoGradGuard guard;
@@ -40,9 +42,9 @@ int main()
     model.eval();
     nd::Vector data(32 * 64);
     for (std::size_t i = 0; i < data.size(); ++i)
-        data[i] = double(i % 23) / 23;
-    auto input = nd::Array::from({32, 64}, data);
-    auto expected = model.forward(input).values();
+        data[i] = static_cast<double>(i % 23) / 23;
+    const auto input = nd::Array::from({32, 64}, data);
+    const auto expected = model.forward(input).values();
     {
         ad::NoGradGuard guard;
         auto actual = model.forward(input);
@@ -53,6 +55,6 @@ int main()
     measure(model, input, 5, true);
     std::cout << "CPU float64; batch=32; Linear(64,64)-Tanh-Linear(64,10); 100 iterations\n";
     std::cout << "recording_ms_per_batch=" << measure(model, input, 100, false)
-              << "\nno_grad_ms_per_batch=" << measure(model, input, 100, true) << '\n';
+        << "\nno_grad_ms_per_batch=" << measure(model, input, 100, true) << '\n';
     return 0;
 }

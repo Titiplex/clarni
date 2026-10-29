@@ -1,5 +1,4 @@
 #include "attention.h"
-#include <cmath>
 #include <algorithm>
 #include <limits>
 #include <stdexcept>
@@ -169,21 +168,28 @@ namespace ml::nn
     }
 
     Array MultiHeadSelfAttention::attend(const Array& a, const std::vector<int>& lengths,
-                                       const bool causal)
+                                         const bool causal)
     {
         const auto valid = detail::sequence_lengths(a, features_, lengths);
-        const int batch=a.shape()[0], time=a.shape()[1], dimension=features_/heads_;
-        auto split=[&](const Array& x){return nd::permute(nd::reshape(x,{batch,time,heads_,dimension}),{0,2,1,3});};
-        auto q=split(query.forward(a)), k=split(key.forward(a)), v=split(value.forward(a));
-        auto scores=nd::scale(nd::batched_matmul(q,nd::permute(k,{0,1,3,2})),1/std::sqrt(double(dimension)));
-        std::vector<bool> allowed(scores.size(),false);
-        for(int b=0;b<batch;++b)for(int head=0;head<heads_;++head)
-            for(int i=0;i<time;++i)for(int j=0;j<time;++j)
-                allowed[((std::size_t(b)*heads_+head)*time+i)*time+j]=i<valid[b]&&j<valid[b]&&(!causal||j<=i);
-        auto probabilities=nd::reshape(masked_softmax(nd::reshape(scores,{batch*heads_*time,time}),allowed),scores.shape());
-        auto context=nd::batched_matmul(probabilities,v);
-        auto merged=nd::reshape(nd::permute(context,{0,2,1,3}),{batch,time,features_});
-        return mask_queries(projection.forward(merged),valid);
+        const int batch = a.shape()[0], time = a.shape()[1], dimension = features_ / heads_;
+        auto split = [&](const Array& x)
+        {
+            return nd::permute(nd::reshape(x, {batch, time, heads_, dimension}), {0, 2, 1, 3});
+        };
+        auto q = split(query.forward(a)), k = split(key.forward(a)), v = split(value.forward(a));
+        auto scores = nd::scale(nd::batched_matmul(q, nd::permute(k, {0, 1, 3, 2})), 1 / std::sqrt(double(dimension)));
+        std::vector<bool> allowed(scores.size(), false);
+        for (int b = 0; b < batch; ++b)
+            for (int head = 0; head < heads_; ++head)
+                for (int i = 0; i < time; ++i)
+                    for (int j = 0; j < time; ++j)
+                        allowed[((std::size_t(b) * heads_ + head) * time + i) * time + j] = i < valid[b] && j < valid[b]
+                            && (!causal || j <= i);
+        auto probabilities = nd::reshape(masked_softmax(nd::reshape(scores, {batch * heads_ * time, time}), allowed),
+                                         scores.shape());
+        auto context = nd::batched_matmul(probabilities, v);
+        auto merged = nd::reshape(nd::permute(context, {0, 2, 1, 3}), {batch, time, features_});
+        return mask_queries(projection.forward(merged), valid);
     }
 
     std::vector<NamedParameter> MultiHeadSelfAttention::named_parameters() const

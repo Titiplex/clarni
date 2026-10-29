@@ -1,6 +1,5 @@
 #pragma once
 #include "autograd.h"
-#include <cstddef>
 #include <vector>
 
 // CPU reference N-D frontend over the existing reverse-mode engine.
@@ -8,20 +7,20 @@
 namespace ml::nd
 {
     using Shape = std::vector<int>;
-    std::size_t numel(const Shape &shape);
+    std::size_t numel(const Shape& shape);
 
     class Array
     {
         Shape shape_;
         ad::Variable data_;
 
-      public:
+    public:
         Array(Shape shape, ad::Variable data);
-        explicit Array(const Shape &shape, double fill = 0, bool requires_grad = false);
-        static Array from(Shape shape, const std::vector<double> &values,
+        explicit Array(const Shape& shape, double fill = 0, bool requires_grad = false);
+        static Array from(Shape shape, const std::vector<double>& values,
                           bool requires_grad = false);
 
-        [[nodiscard]] const Shape &shape() const
+        [[nodiscard]] const Shape& shape() const
         {
             return shape_;
         }
@@ -31,7 +30,7 @@ namespace ml::nd
             return numel(shape_);
         }
 
-        [[nodiscard]] const ad::Variable &variable() const
+        [[nodiscard]] const ad::Variable& variable() const
         {
             return data_;
         }
@@ -61,27 +60,27 @@ namespace ml::nd
         }
     };
 
-    Array reshape(const Array &, Shape);
-    Array permute(const Array &, const std::vector<int> &axes);
-    Array slice(const Array &, int axis, int first, int count);
-    Array concat(const std::vector<Array> &, int axis);
-    Array broadcast_to(const Array &, Shape);
-    Array add(const Array &, const Array &); // NumPy-style trailing-axis broadcasting
-    Array multiply(const Array &, const Array &);
-    Array scale(const Array &, double factor, double offset = 0);
-    Array activate(const Array &, Activation);
-    Array sum(const Array &);
-    Array mean(const Array &);
-    Array reduce_sum(const Array &, int axis, bool keepdim = false);
-    Array matmul(const Array &, const Array &); // rank 2
+    Array reshape(const Array&, Shape);
+    Array permute(const Array&, const std::vector<int>& axes);
+    Array slice(const Array&, int axis, int first, int count);
+    Array concat(const std::vector<Array>&, int axis);
+    Array broadcast_to(const Array&, Shape);
+    Array add(const Array&, const Array&); // NumPy-style trailing-axis broadcasting
+    Array multiply(const Array&, const Array&);
+    Array scale(const Array&, double factor, double offset = 0);
+    Array activate(const Array&, Activation);
+    Array sum(const Array&);
+    Array mean(const Array&);
+    Array reduce_sum(const Array&, int axis, bool keepdim = false);
+    Array matmul(const Array&, const Array&); // rank 2
     // Batched matrix product with trailing-axis batch broadcasting.
-    Array batched_matmul(const Array &, const Array &);
-    Array softmax(const Array &, int axis = -1);
-    Array mse(const Array &prediction, const Array &target);
+    Array batched_matmul(const Array&, const Array&);
+    Array softmax(const Array&, int axis = -1);
+    Array mse(const Array& prediction, const Array& target);
     // Logits [..., classes], integer labels [...]; ignores labels == ignore_index.
-    Array cross_entropy(const Array &, const std::vector<int> &labels, int ignore_index = -1);
+    Array cross_entropy(const Array&, const std::vector<int>& labels, int ignore_index = -1);
     // Reusable CPU operation hook for layers; VJP arguments/returns are flat row-major.
     using Vector = std::vector<double>;
-    using VJP = std::function<Vector(const Vector &)>;
-    Array operation(Shape, Vector values, const std::vector<std::pair<Array, VJP>> &parents);
+    using VJP = std::function<Vector(const Vector&)>;
+    Array operation(Shape, Vector values, const std::vector<std::pair<Array, VJP>>& parents);
 } // namespace ml::nd

@@ -1,5 +1,4 @@
 #include "convolution.h"
-#include <cmath>
 #include <limits>
 #include <stdexcept>
 

@@ -50,10 +50,10 @@ Configuration fixée avant lecture des scores :
   après sélection. Les trois meilleures époques sont ici les troisièmes.
 
 | Graine | Accuracy validation | Perte test | Accuracy test | Macro F1 test |
-|---|---:|---:|---:|---:|
-| 7 | 86.5 % | 0.369288 | 88.1 % | 0.878115 |
-| 19 | 88.0 % | 0.390928 | 87.5 % | 0.871826 |
-| 42 | 90.5 % | 0.339570 | 90.1 % | 0.898447 |
+|--------|--------------------:|-----------:|--------------:|--------------:|
+| 7      |              86.5 % |   0.369288 |        88.1 % |      0.878115 |
+| 19     |              88.0 % |   0.390928 |        87.5 % |      0.871826 |
+| 42     |              90.5 % |   0.339570 |        90.1 % |      0.898447 |
 
 La moyenne d'accuracy test de ces trois essais est d'environ **88.6 %**.
 La graine modifie ici le split de validation, l'initialisation et le mélange :

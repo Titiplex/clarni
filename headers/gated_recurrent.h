@@ -1,5 +1,4 @@
 #pragma once
-#include <cstddef>
 #include "recurrent.h"
 
 namespace ml::nn
