@@ -8,7 +8,8 @@
 
 namespace ml::nn
 {
-    Parameter::Parameter(const nd::Array& a) : value_(nd::Array::from(a.shape(), a.values(), true))
+    Parameter::Parameter(const nd::Array& a)
+        : value_(a.shape(), ad::Variable(a.variable().value(), true))
     {
         if (!value_.variable().value().all_finite())
             throw std::invalid_argument("Non-finite parameter");
@@ -161,7 +162,7 @@ namespace ml::nn
         double n = 0;
         for (auto& p : bindings_)
             if (p.parameter->value().has_grad())
-                for (double g : p.parameter->value().grad())
+                for (double g : p.parameter->value().variable().grad().cpu_values())
                 {
                     if (!std::isfinite(g))
                         throw std::overflow_error("Non-finite gradient");

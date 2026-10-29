@@ -4,6 +4,7 @@
 #include "compute_device.h"
 #include "tensor_backend.h"
 #include <memory>
+#include <span>
 
 namespace ml
 {
@@ -32,6 +33,12 @@ namespace ml
 
     public:
         explicit Tensor(int rows = 0, int cols = 0, double value = 0.0, Backend backend = Backend::CPU);
+        // Immutable CPU view; valid while this tensor's shared storage is alive.
+        [[nodiscard]] std::span<const double> cpu_values() const &;
+        std::span<const double> cpu_values() const && = delete;
+        // Adopts CPU storage; CUDA remains an explicit upload.
+        static Tensor from_values(int rows, int cols, std::vector<double> values,
+                                  Backend backend = Backend::CPU);
         static Tensor from_matrix(const math::Matrix& matrix, Backend backend = Backend::CPU);
         [[nodiscard]] math::Matrix to_matrix() const;
         [[nodiscard]] Tensor to(Backend backend) const;

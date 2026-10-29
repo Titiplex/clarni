@@ -24,27 +24,19 @@ namespace ml::nd
 
     namespace
     {
-        Tensor pack(const Vector &values)
+        Tensor pack(Vector values)
         {
             if (values.empty() ||
                 values.size() > static_cast<std::size_t>((std::numeric_limits<int>::max)()))
                 throw std::length_error("Invalid flat storage size");
-            math::Matrix m(static_cast<int>(values.size()), 1);
-            for (int i = 0; i < m.get_x(); ++i)
-                m(i, 0) = values[i];
-            return Tensor::from_matrix(m);
+            const int count = static_cast<int>(values.size());
+            return Tensor::from_values(count, 1, std::move(values));
         }
 
         Vector unpack(const Tensor &t)
         {
-            if (t.backend() != Backend::CPU)
-                throw std::invalid_argument("N-D reference operations require CPU tensors");
-            auto m = t.to_matrix();
-            Vector result(t.size());
-            for (int i = 0; i < m.get_x(); ++i)
-                for (int j = 0; j < m.get_y(); ++j)
-                    result[static_cast<std::size_t>(i) * m.get_y() + j] = m(i, j);
-            return result;
+            const auto values = t.cpu_values();
+            return {values.begin(), values.end()};
         }
 
         int axis_index(int axis, const Shape &shape)
@@ -125,11 +117,12 @@ namespace ml::nd
         return unpack(data_.grad());
     }
 
-    Array operation(Shape shape, const Vector &values,
-                    const std::vector<std::pair<Array, VJP>> &parents)
+    Array operation(Shape shape, Vector values, const std::vector<std::pair<Array, VJP>> &parents)
     {
         if (numel(shape) != values.size())
             throw std::invalid_argument("Operation shape mismatch");
+        if (!ad::grad_enabled())
+            return Array(std::move(shape), ad::Variable(pack(std::move(values)), false));
         std::vector<std::pair<ad::Variable, ad::Pullback>> edges;
         for (const auto &[parent, vjp] : parents)
             edges.emplace_back(parent.variable(),
@@ -140,7 +133,7 @@ namespace ml::nd
                                        throw std::logic_error("N-D pullback size mismatch");
                                    return pack(result);
                                });
-        return Array(std::move(shape), ad::operation(pack(values), edges));
+        return Array(std::move(shape), ad::operation(pack(std::move(values)), edges));
     }
 
     Array reshape(const Array &a, Shape shape)
@@ -240,6 +233,8 @@ namespace ml::nd
 
     Array broadcast_to(const Array &a, Shape shape)
     {
+        if (a.shape() == shape)
+            return a;
         if (shape.size() < a.shape().size() || broadcast_shape(a.shape(), shape) != shape)
             throw std::invalid_argument("Invalid broadcast target");
         const auto src = strides(a.shape());
@@ -339,6 +334,70 @@ namespace ml::nd
                           {{result, [r = a.shape()[0], c = b.shape()[1]](const Tensor &g)
                             { return g.reshape(r, c); }}});
         return Array({a.shape()[0], b.shape()[1]}, flat);
+    }
+
+    Array batched_matmul(const Array &a, const Array &b)
+    {
+        if (a.shape().size() < 2 || b.shape().size() < 2 ||
+            a.shape().back() != b.shape()[b.shape().size() - 2])
+            throw std::invalid_argument("Batched matmul shape mismatch");
+        Shape ap(a.shape().begin(), a.shape().end() - 2),
+            bp(b.shape().begin(), b.shape().end() - 2);
+        Shape prefix = broadcast_shape(ap, bp);
+        const int m = a.shape()[a.shape().size() - 2], k = a.shape().back(), n = b.shape().back();
+        Shape shape = prefix;
+        shape.push_back(m);
+        shape.push_back(n);
+        const auto output_size = numel(shape), batches = numel(prefix);
+        const auto ps = strides(prefix), as = strides(ap), bs = strides(bp);
+        std::vector<std::size_t> ai(batches, 0), bi(batches, 0);
+        for (std::size_t batch = 0; batch < batches; ++batch)
+        {
+            for (std::size_t j = 0; j < ap.size(); ++j)
+                if (ap[j] != 1)
+                    ai[batch] += (batch / ps[j + prefix.size() - ap.size()] % ap[j]) * as[j];
+            for (std::size_t j = 0; j < bp.size(); ++j)
+                if (bp[j] != 1)
+                    bi[batch] += (batch / ps[j + prefix.size() - bp.size()] % bp[j]) * bs[j];
+            ai[batch] *= static_cast<std::size_t>(m) * k;
+            bi[batch] *= static_cast<std::size_t>(k) * n;
+        }
+        const auto x = a.values(), y = b.values();
+        Vector out(output_size, 0);
+        for (std::size_t batch = 0; batch < batches; ++batch)
+            for (int row = 0; row < m; ++row)
+                for (int z = 0; z < k; ++z)
+                    for (int col = 0; col < n; ++col)
+                        out[(batch * m + row) * n + col] +=
+                            x[ai[batch] + static_cast<std::size_t>(row) * k + z] *
+                            y[bi[batch] + static_cast<std::size_t>(z) * n + col];
+        return operation(
+            shape, std::move(out),
+            {{a,
+              [ai, bi, y, m, k, n, size = a.size()](const Vector &g)
+              {
+                  Vector r(size, 0);
+                  for (std::size_t batch = 0; batch < ai.size(); ++batch)
+                      for (int row = 0; row < m; ++row)
+                          for (int z = 0; z < k; ++z)
+                              for (int col = 0; col < n; ++col)
+                                  r[ai[batch] + static_cast<std::size_t>(row) * k + z] +=
+                                      g[(batch * m + row) * n + col] *
+                                      y[bi[batch] + static_cast<std::size_t>(z) * n + col];
+                  return r;
+              }},
+             {b, [ai, bi, x, m, k, n, size = b.size()](const Vector &g)
+              {
+                  Vector r(size, 0);
+                  for (std::size_t batch = 0; batch < ai.size(); ++batch)
+                      for (int row = 0; row < m; ++row)
+                          for (int z = 0; z < k; ++z)
+                              for (int col = 0; col < n; ++col)
+                                  r[bi[batch] + static_cast<std::size_t>(z) * n + col] +=
+                                      x[ai[batch] + static_cast<std::size_t>(row) * k + z] *
+                                      g[(batch * m + row) * n + col];
+                  return r;
+              }}});
     }
 
     Array softmax(const Array &a, int axis)

@@ -74,6 +74,8 @@ namespace ml::nd
     Array mean(const Array &);
     Array reduce_sum(const Array &, int axis, bool keepdim = false);
     Array matmul(const Array &, const Array &); // rank 2
+    // Batched matrix product with trailing-axis batch broadcasting.
+    Array batched_matmul(const Array &, const Array &);
     Array softmax(const Array &, int axis = -1);
     Array mse(const Array &prediction, const Array &target);
     // Logits [..., classes], integer labels [...]; ignores labels == ignore_index.
@@ -81,5 +83,5 @@ namespace ml::nd
     // Reusable CPU operation hook for layers; VJP arguments/returns are flat row-major.
     using Vector = std::vector<double>;
     using VJP = std::function<Vector(const Vector &)>;
-    Array operation(Shape, const Vector &values, const std::vector<std::pair<Array, VJP>> &parents);
+    Array operation(Shape, Vector values, const std::vector<std::pair<Array, VJP>> &parents);
 } // namespace ml::nd

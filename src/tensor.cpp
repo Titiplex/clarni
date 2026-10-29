@@ -85,6 +85,30 @@ namespace ml
         return result;
     }
 
+    std::span<const double> Tensor::cpu_values() const &
+    {
+        return {read(), size()};
+    }
+
+    Tensor Tensor::from_values(const int rows, const int cols, std::vector<double> values,
+                              Backend backend)
+    {
+        if (checked_size(rows, cols) != values.size())
+            throw std::invalid_argument("Tensor value count mismatch");
+        if (backend == Backend::Auto) backend = compute_device().selected;
+        if (backend == Backend::CPU)
+        {
+            Tensor result;
+            result.rows_ = rows;
+            result.cols_ = cols;
+            result.buffer_->values = std::move(values);
+            return result;
+        }
+        Tensor result(rows, cols, 0, backend);
+        gpu::resident::upload(result.buffer_->device_values, values.data(), values.size(), result.buffer_->device);
+        return result;
+    }
+
     Tensor Tensor::from_matrix(const math::Matrix& matrix, const Backend backend)
     {
         Tensor result(matrix.get_x(), matrix.get_y(), 0, backend);
