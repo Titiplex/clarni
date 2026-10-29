@@ -9,7 +9,8 @@ import sys
 parser = argparse.ArgumentParser()
 parser.add_argument("--build", default="build-direct")
 parser.add_argument("--sanitize", action="store_true")
-parser.add_argument("--examples", action="store_true", help="Build and run all examples too")
+parser.add_argument("--examples", action="store_true", help="Build and run examples (MNIST requires --mnist-data)")
+parser.add_argument("--mnist-data", type=Path, help="Optional directory containing raw MNIST IDX files")
 parser.add_argument("--no-leak-check", action="store_true")
 args = parser.parse_args()
 root = Path(__file__).resolve().parents[1]
@@ -71,7 +72,14 @@ if args.examples:
             sys.exit(compiled.returncode)
         if compiled.stderr:
             print(compiled.stderr)
-        tested = run([str(executable)])
+        command = [str(executable)]
+        if source.stem == "mnist":
+            if args.mnist_data is None:
+                print(name + ": SKIP (supply --mnist-data to run)", flush=True)
+                continue
+            command += ["--data", str(args.mnist_data.resolve()), "--output", str(build / "mnist-run"),
+                        "--train-limit", "300", "--validation", "60", "--test-limit", "100", "--epochs", "1"]
+        tested = run(command)
         print(name + ":\n" + tested.stdout + tested.stderr, flush=True)
         records.append({"test": name, "returncode": tested.returncode, "output": tested.stdout + tested.stderr})
 (build / "results.json").write_text(json.dumps(records, indent=2))
