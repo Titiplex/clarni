@@ -299,8 +299,10 @@ namespace ml::nd
                                  {{v, [n = x.size()](const Tensor &g)
                                    { return g.reshape(static_cast<int>(n), 1); }}});
         };
+        const Shape output_shape = {a.shape()[0], b.shape()[1]};
+        const auto output_size = numel(output_shape);
         auto result = ad::matmul(view(a), view(b));
-        auto flat = ad::operation(result.value().reshape(a.shape()[0] * b.shape()[1], 1),
+        auto flat = ad::operation(result.value().reshape(static_cast<int>(output_size), 1),
                                   {{result, [r = a.shape()[0], c = b.shape()[1]](const Tensor &g)
                                     { return g.reshape(r, c); }}});
         return Array({a.shape()[0], b.shape()[1]}, flat);

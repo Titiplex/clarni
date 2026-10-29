@@ -9,6 +9,7 @@ import sys
 parser = argparse.ArgumentParser()
 parser.add_argument("--build", default="build-direct")
 parser.add_argument("--sanitize", action="store_true")
+parser.add_argument("--examples", action="store_true", help="Build and run all examples too")
 parser.add_argument("--no-leak-check", action="store_true")
 args = parser.parse_args()
 root = Path(__file__).resolve().parents[1]
@@ -60,5 +61,18 @@ for name, source in cases:
     tested = run([str(executable)])
     print(name + ":\n" + tested.stdout + tested.stderr, flush=True)
     records.append({"test": name, "returncode": tested.returncode, "output": tested.stdout + tested.stderr})
+if args.examples:
+    for source in sorted((root / "examples").glob("*.cpp")):
+        name = "example_" + source.stem
+        executable = build / name
+        compiled = run(["g++", *flags, str(source), str(library), "-o", str(executable)])
+        if compiled.returncode:
+            print(compiled.stdout + compiled.stderr)
+            sys.exit(compiled.returncode)
+        if compiled.stderr:
+            print(compiled.stderr)
+        tested = run([str(executable)])
+        print(name + ":\n" + tested.stdout + tested.stderr, flush=True)
+        records.append({"test": name, "returncode": tested.returncode, "output": tested.stdout + tested.stderr})
 (build / "results.json").write_text(json.dumps(records, indent=2))
 sys.exit(any(item["returncode"] not in (0, 77) for item in records))

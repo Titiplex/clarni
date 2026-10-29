@@ -159,3 +159,17 @@ Le test residency_mock est une simulation du protocole et des transferts ;
 il ne valide pas les kernels. Les tests cuda/residency nécessitent du matériel.
 
 Voir `docs/EVOLUTION.md` pour les formules, les choix et les limites de validation.
+
+## Embeddings, CNN, RNN et petit Transformer
+
+Les nouvelles API `ml::nd` et `ml::nn` ajoutent des formes N-D, des modules et
+paramètres partagés, les embeddings/SkipGram, Conv1D/Conv2D et le pooling,
+RNN/GRU/LSTM avec BPTT et masques, ainsi que l'attention multi-tête et un petit
+Transformer de langage. Elles utilisent le moteur autograd et les optimiseurs
+existants. Leur implémentation est **CPU de référence** ; les chemins CUDA
+historiques restent disponibles pour les réseaux denses existants.
+
+Voir [docs/ARCHITECTURES.md](docs/ARCHITECTURES.md) pour les conventions, exemples,
+checkpoints, limites et commandes Windows. Les exemples `modular_mlp`,
+`word_embeddings`, `embedding_cnn`, `cnn`, `character_rnn`,
+`recurrent_comparison` et `tiny_transformer` exécutent des entraînements complets.

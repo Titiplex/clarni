@@ -124,6 +124,8 @@ int main()
               auto path = (std::filesystem::temp_directory_path() / "clarni_nn_checkpoint_test.txt")
                               .string();
               nn::save_checkpoint(path, a, &ta);
+              expect_throw<std::invalid_argument>([&] { nn::save_checkpoint(path, a, &tb); });
+              expect_throw<std::invalid_argument>([&] { nn::load_checkpoint(path, a, &tb); });
               nn::load_checkpoint(path, b, &tb);
               step(a, ta);
               step(b, tb);
@@ -143,5 +145,6 @@ int main()
               expect_throw<std::invalid_argument>([] { add(Array({2}), Array({3})); });
               expect_throw<std::invalid_argument>([] { permute(Array({2, 2}), {0, 0}); });
               expect_throw<std::invalid_argument>([] { reshape(Array({2}), {3}); });
+              expect_throw<std::length_error>([] { matmul(Array({65536, 1}), Array({1, 65536})); });
           }}});
 }

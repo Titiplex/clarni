@@ -1,5 +1,6 @@
 #include "convolution.h"
 #include "nd_test_support.h"
+#include <limits>
 using namespace ml;
 using namespace ml::nd;
 int main()
@@ -60,6 +61,14 @@ int main()
               auto a = Array::from({1, 1, 3}, {2, 2, 1}, true);
               sum(nn::pool(a, {2}, {1})).backward();
               require(a.grad() == Vector({1, 1, 0}), "max ties choose first");
+              auto masked =
+                  Array::from({1, 1, 3}, Vector(3, -std::numeric_limits<double>::infinity()), true);
+              auto pooled = nn::pool(masked, {2}, {1});
+              require(std::isinf(pooled.values()[0]) && pooled.values()[0] < 0,
+                      "negative-infinity pooling value");
+              sum(pooled).backward();
+              require(masked.grad() == Vector({1, 1, 0}),
+                      "all-masked windows select their own first index");
           }},
          {"CNN overfits tiny images",
           []

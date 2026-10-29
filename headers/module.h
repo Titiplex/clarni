@@ -107,6 +107,7 @@ namespace ml::nn
             return optimizer_;
         }
         void restore_optimizer(const std::vector<Optimizer::State> &);
+        void validate_model(const Module &) const;
     };
     // Caller reconstructs topology. Strict names/shapes. Optimizer optional.
     void save_checkpoint(const std::string &, const Module &, const Trainer * = nullptr);

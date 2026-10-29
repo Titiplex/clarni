@@ -139,7 +139,7 @@ namespace ml::nn
         auto x = a.values();
         Vector out(nd::numel(shape),
                    kind == PoolKind::Max ? -std::numeric_limits<double>::infinity() : 0);
-        std::vector<std::size_t> argmax(out.size(), 0);
+        std::vector<std::size_t> argmax(out.size(), a.size());
         int ih = a.shape().size() == 4 ? a.shape()[2] : 1, iw = a.shape().back();
         int oh = shape.size() == 4 ? shape[2] : 1, ow = shape.back(),
             kh = kernel.size() == 2 ? kernel[0] : 1, kw = kernel.back();
@@ -168,7 +168,7 @@ namespace ml::nn
             {
                 if (kind == PoolKind::Average)
                     out[oi] += x[ii] / divisor;
-                else if (x[ii] > out[oi])
+                else if (argmax[oi] == a.size() || x[ii] > out[oi])
                 {
                     out[oi] = x[ii];
                     argmax[oi] = ii;

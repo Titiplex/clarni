@@ -124,6 +124,12 @@ namespace ml::nn
             if (p[i].name != bindings_[i].name || p[i].parameter != bindings_[i].parameter)
                 throw std::logic_error("Trainer parameter identities changed");
     }
+    void Trainer::validate_model(const Module &model) const
+    {
+        if (&model != &module_)
+            throw std::invalid_argument("Trainer belongs to a different model");
+        validate_bindings();
+    }
     void Trainer::zero_grad()
     {
         validate_bindings();
@@ -204,6 +210,8 @@ namespace ml::nn
     } // namespace
     void save_checkpoint(const std::string &path, const Module &m, const Trainer *trainer)
     {
+        if (trainer)
+            trainer->validate_model(m);
         auto p = parameters(m);
         std::ofstream out(path);
         if (!out)
@@ -241,6 +249,8 @@ namespace ml::nn
     }
     void load_checkpoint(const std::string &path, Module &m, Trainer *trainer)
     {
+        if (trainer)
+            trainer->validate_model(m);
         std::ifstream in(path);
         std::string magic;
         int version;
