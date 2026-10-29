@@ -1,5 +1,6 @@
 #include "embedding.h"
 #include <algorithm>
+#include <cmath>
 #include <fstream>
 #include <iomanip>
 #include <limits>
