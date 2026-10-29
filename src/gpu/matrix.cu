@@ -107,7 +107,7 @@ namespace ml::gpu
 {
     bool compiled() noexcept { return true; }
 
-    ml::gpu::ProbeResult probe()
+    ProbeResult probe()
     {
         int count = 0;
         const cudaError_t status = cudaGetDeviceCount(&count);
@@ -174,21 +174,21 @@ namespace ml::gpu
         const double* b,
         double* c,
         const std::size_t count,
-        const ml::gpu::Elementwise op,
+        const Elementwise operation,
         const double scalar,
         const int device
     )
     {
         if (count == 0) return;
         check(cudaSetDevice(device), "cudaSetDevice");
-        const bool binary = op != ml::gpu::Elementwise::Scale;
+        const bool binary = operation != Elementwise::Scale;
         const DeviceBuffer da(count);
         const DeviceBuffer db(binary ? count : 0);
         const DeviceBuffer dc(count);
         to_device(da.data, a, count);
         if (binary) to_device(db.data, b, count);
         elementwise_kernel<<<blocks_for(count), 256>>>(da.data, db.data, dc.data,
-                                                       count, op, scalar);
+                                                       count, operation, scalar);
         check(cudaGetLastError(), "elementwise_kernel launch ");
         check(cudaDeviceSynchronize(), "elementwise_kernel execution");
         to_host(c, dc.data, count);

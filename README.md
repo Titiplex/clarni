@@ -51,14 +51,14 @@ SIGMOID et SOFTMAX et calculent leur gradient directement sur les logits.
 
 ## Objets et conventions
 
-| Objet | Contrat |
-| --- | --- |
-| Matrix / Vector | Conteneurs hôtes historiques ; Vector conserve le stockage 1 × dim |
-| Tensor | Valeur matricielle immuable CPU ou CUDA, copies partageant un stockage non modifié |
-| Layer | Poids M × (N+1), biais en colonne 0 ; initialisation automatique via add_layer |
-| NeuralNetwork | Mini-batches en colonnes, backward analytique dense, optimiseur et RNG persistants |
-| StandardScaler | Statistiques ajustées uniquement sur l'entraînement, sauvegarde séparée |
-| ad::Variable | Graphe reverse-mode distinct du réseau dense, sur des Tensor de rang 2 |
+| Objet           | Contrat                                                                            |
+|-----------------|------------------------------------------------------------------------------------|
+| Matrix / Vector | Conteneurs hôtes historiques ; Vector conserve le stockage 1 × dim                 |
+| Tensor          | Valeur matricielle immuable CPU ou CUDA, copies partageant un stockage non modifié |
+| Layer           | Poids M × (N+1), biais en colonne 0 ; initialisation automatique via add_layer     |
+| NeuralNetwork   | Mini-batches en colonnes, backward analytique dense, optimiseur et RNG persistants |
+| StandardScaler  | Statistiques ajustées uniquement sur l'entraînement, sauvegarde séparée            |
+| ad::Variable    | Graphe reverse-mode distinct du réseau dense, sur des Tensor de rang 2             |
 
 Pour un batch : X a N lignes et B colonnes. Le forward calcule W*[1;X].
 Le backward accumule les gradients non moyennés ; la division par B a lieu

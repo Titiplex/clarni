@@ -79,8 +79,10 @@ int main()
                 (void)layer.backward(Vector(2, 1));
                 for (int i = 0; i < 2; ++i)for (int j = 0; j < 3; ++j)near(layer.get_gradients()(i, j), 2 * once(i, j));
                 layer.step(0.1, 2);
-                for (int i = 0; i < 2; ++i)for (int j = 0; j < 3; ++j)near(
-                    layer.get_weights()(i, j), w(i, j) - 0.1 * once(i, j));
+                for (int i = 0; i < 2; ++i)
+                    for (int j = 0; j < 3; ++j)
+                        near(
+                            layer.get_weights()(i, j), w(i, j) - 0.1 * once(i, j));
             }
         },
         {

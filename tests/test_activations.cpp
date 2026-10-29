@@ -23,7 +23,7 @@ int main()
                     weights(1, 1) = -0.3;
                     weights(1, 2) = 0.6;
                     layer.set_weights(weights);
-                    ml::math::Vector x(std::vector<double>{0.2, 0.5});
+                    ml::math::Vector x(std::vector{0.2, 0.5});
                     (void)layer.forward(x);
                     const auto gradient = layer.backward(ml::math::Vector(2, 1));
                     for (int j = 0; j < 2; ++j)

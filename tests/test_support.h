@@ -9,12 +9,12 @@
 #include <utility>
 #include <vector>
 
-inline void require(bool condition, const std::string& message)
+inline void require(const bool condition, const std::string& message)
 {
     if (!condition) throw std::runtime_error(message);
 }
 
-inline void near(double actual, double expected, double tolerance = 1e-10)
+inline void near(const double actual, const double expected, const double tolerance = 1e-10)
 {
     if (!std::isfinite(actual) || !std::isfinite(expected)
         || std::abs(actual - expected) > tolerance * (1.0 + std::abs(expected)))

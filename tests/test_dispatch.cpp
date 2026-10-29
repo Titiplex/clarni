@@ -21,21 +21,21 @@ namespace ml::gpu
         return {mock::available, mock::available ? 3 : -1, "mock GPU", "mock probe"};
     }
 
-    void matmul(const double*, const double*, double* c, int rows, int, int cols, int device)
+    void matmul(const double*, const double*, double* c, const int rows, int, const int cols, const int device)
     {
         ++mock::calls;
         require(device == 3, "incorrect device");
         if (mock::fail) throw std::runtime_error("mock GPU failure");
-        std::fill(c, c + static_cast<std::size_t>(rows) * cols, mock::sentinel);
+        std::fill_n(c, static_cast<std::size_t>(rows) * cols, mock::sentinel);
     }
 
-    void elementwise(const double*, const double*, double* c, std::size_t count,
-                     Elementwise, double, int device)
+    void elementwise(const double*, const double*, double* c, const std::size_t count,
+                     Elementwise, double, const int device)
     {
         ++mock::calls;
         require(device == 3, "incorrect device");
         if (mock::fail) throw std::runtime_error("mock GPU failure");
-        std::fill(c, c + count, mock::sentinel);
+        std::fill_n(c, count, mock::sentinel);
     }
 }
 

@@ -11,9 +11,11 @@ int main()
             "affine_regression_recovers_weights_and_bias", []
             {
                 std::vector<Sample> samples;
-                for (double x : {-1., 0., 1.})for (double y : {-1., 0., 1.})samples.push_back({
-                    {x, y}, {2 * x - 3 * y + 0.7}
-                });
+                for (double x : {-1., 0., 1.})
+                    for (double y : {-1., 0., 1.})
+                        samples.push_back({
+                            {x, y}, {2 * x - 3 * y + 0.7}
+                        });
                 NeuralNetwork net(1, 0.1, NeuralNetwork::BATCH);
                 net.add_layer(2, 1, Layer::IDENTITY);
                 net.learn(Dataset(samples), 500);
@@ -33,8 +35,9 @@ int main()
                 net.set_optimizer(options);
                 net.learn(data, 300);
                 require(net.mean_loss(data) < 0.05, "BCE did not learn");
-                for (const auto& sample : data)require((net.output(sample.input)[0] > 0.5) == bool(sample.target[0]),
-                                                       "binary class");
+                for (const auto& sample : data)
+                    require((net.output(sample.input)[0] > 0.5) == bool(sample.target[0]),
+                            "binary class");
             }
         },
         {
@@ -91,18 +94,19 @@ int main()
                     for (int l = 0; l < 2; ++l)
                     {
                         auto original = net[l].get_weights();
-                        for (int i = 0; i < original.get_x(); ++i)for (int j = 0; j < original.get_y(); ++j)
-                        {
-                            auto w = original;
-                            w(i, j) += 1e-6;
-                            net[l].set_weights(w);
-                            double plus = net.mean_loss(data);
-                            w(i, j) -= 2e-6;
-                            net[l].set_weights(w);
-                            double minus = net.mean_loss(data);
-                            near(gradients[l](i, j), (plus - minus) / 2e-6, 1e-7);
-                            net[l].set_weights(original);
-                        }
+                        for (int i = 0; i < original.get_x(); ++i)
+                            for (int j = 0; j < original.get_y(); ++j)
+                            {
+                                auto w = original;
+                                w(i, j) += 1e-6;
+                                net[l].set_weights(w);
+                                double plus = net.mean_loss(data);
+                                w(i, j) -= 2e-6;
+                                net[l].set_weights(w);
+                                double minus = net.mean_loss(data);
+                                near(gradients[l](i, j), (plus - minus) / 2e-6, 1e-7);
+                                net[l].set_weights(original);
+                            }
                     }
                 }
             }

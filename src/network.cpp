@@ -9,8 +9,9 @@ namespace ml
 {
     namespace
     {
-        Tensor pack(const Dataset& data, const std::vector<std::size_t>& order, std::size_t begin, std::size_t count,
-                    bool target)
+        Tensor pack(const Dataset& data, const std::vector<std::size_t>& order, const std::size_t begin,
+                    const std::size_t count,
+                    const bool target)
         {
             const auto& first = data[order[begin]];
             const auto dim = target ? first.target.size() : first.input.size();
@@ -27,7 +28,8 @@ namespace ml
         }
     }
 
-    NeuralNetwork::NeuralNetwork(std::size_t maximum, double rate, LearningType type, Error error, std::uint32_t seed)
+    NeuralNetwork::NeuralNetwork(const std::size_t maximum, const double rate, const LearningType type,
+                                 const Error error, const std::uint32_t seed)
         : layer_nb(maximum), learning_rate(rate), learning_type(type), error_type_(error), generator(seed)
     {
         if (!std::isfinite(rate) || rate <= 0)throw std::invalid_argument("Invalid learning rate");
@@ -40,7 +42,7 @@ namespace ml
         layers.reserve(layer_nb);
     }
 
-    void NeuralNetwork::add_layer(int inputs, int outputs, Layer::Activation type)
+    void NeuralNetwork::add_layer(const int inputs, const int outputs, const Layer::Activation type)
     {
         if (layers.size() >= layer_nb)throw std::invalid_argument("Declared layer number too small");
         if (!layers.empty() && layers.back().output_size() != inputs)throw std::invalid_argument("Incompatible layers");
@@ -50,9 +52,9 @@ namespace ml
         observed_revisions_.push_back(layers.back().revision());
     }
 
-    Layer& NeuralNetwork::get(std::size_t i) { return layers.at(i); }
-    const Layer& NeuralNetwork::get(std::size_t i) const { return layers.at(i); }
-    void NeuralNetwork::set_optimizer(OptimizerOptions options) { optimizer_ = Optimizer(options); }
+    Layer& NeuralNetwork::get(const std::size_t i) { return layers.at(i); }
+    const Layer& NeuralNetwork::get(const std::size_t i) const { return layers.at(i); }
+    void NeuralNetwork::set_optimizer(const OptimizerOptions& options) { optimizer_ = Optimizer(options); }
 
     LossKind NeuralNetwork::loss_kind() const
     {
@@ -87,9 +89,9 @@ namespace ml
             if (sample.input.size() != static_cast<std::size_t>(layers.front().input_size()) || sample.target.size() !=
                 static_cast<std::size_t>(layers.back().output_size()))
                 throw std::invalid_argument("Dataset dimensions");
-            for (double x : sample.input)if (!std::isfinite(x))throw std::invalid_argument("Non-finite input");
+            for (const double x : sample.input)if (!std::isfinite(x))throw std::invalid_argument("Non-finite input");
             double sum = 0;
-            for (double y : sample.target)
+            for (const double y : sample.target)
             {
                 if (!std::isfinite(y) || (error_type_ != SIMPLE && (y < 0 || y > 1)))
                     throw std::invalid_argument(
@@ -113,8 +115,8 @@ namespace ml
         return value;
     }
 
-    std::vector<double> NeuralNetwork::learn(const Dataset& dataset, std::size_t epochs, std::size_t batch_size,
-                                             bool shuffle)
+    std::vector<double> NeuralNetwork::learn(const Dataset& dataset, const std::size_t epochs, std::size_t batch_size,
+                                             const bool shuffle)
     {
         validate_dataset(dataset);
         switch (learning_type)
@@ -137,14 +139,14 @@ namespace ml
         for (std::size_t epoch = 0; epoch < epochs; ++epoch)
         {
             // Canonical order each epoch: RNG state alone suffices to resume exactly.
-            std::iota(order.begin(),order.end(),0);
-            if (shuffle)std::shuffle(order.begin(), order.end(), generator);
+            std::iota(order.begin(), order.end(), 0);
+            if (shuffle)std::ranges::shuffle(order, generator);
             for (std::size_t begin = 0; begin < dataset.size();)
             {
                 const auto count = std::min(batch_size, dataset.size() - begin);
                 for (auto& layer : layers)layer.zero_grad();
                 auto prediction = batch_loss_input(pack(dataset, order, begin, count, false));
-                auto loss = prediction.loss(pack(dataset, order, begin, count, true), loss_kind());
+                const auto loss = prediction.loss(pack(dataset, order, begin, count, true), loss_kind());
                 auto gradient = loss.gradient;
                 for (std::size_t i = layers.size(); i-- > 0;)
                     gradient = layers[i].backward_batch(
@@ -173,10 +175,15 @@ namespace ml
         return result;
     }
 
-    math::Vector NeuralNetwork::output(const std::vector<double>& input)const{
-        validate_topology();if(input.size()!=static_cast<std::size_t>(layers.front().input_size()))throw std::invalid_argument("Input dimension");
-        math::Matrix matrix(static_cast<int>(input.size()),1);for(std::size_t i=0;i<input.size();++i)matrix(static_cast<int>(i),0)=input[i];
-        return math::Vector::convert(output_batch(Tensor::from_matrix(matrix,compute_device().selected)).to_matrix());
+    math::Vector NeuralNetwork::output(const std::vector<double>& input) const
+    {
+        validate_topology();
+        if (input.size() != static_cast<std::size_t>(layers.front().input_size()))
+            throw std::invalid_argument(
+                "Input dimension");
+        math::Matrix matrix(static_cast<int>(input.size()), 1);
+        for (std::size_t i = 0; i < input.size(); ++i)matrix(static_cast<int>(i), 0) = input[i];
+        return math::Vector::convert(output_batch(Tensor::from_matrix(matrix, compute_device().selected)).to_matrix());
     }
 
     double NeuralNetwork::mean_loss(const Dataset& dataset) const
@@ -201,23 +208,55 @@ namespace ml
         return total / static_cast<double>(dataset.size());
     }
 
-    void NeuralNetwork::set_l2(double coefficient){if(!std::isfinite(coefficient)||coefficient<0)throw std::invalid_argument("Invalid L2 coefficient");l2_=coefficient;}
-    double NeuralNetwork::objective_loss(const Dataset& data)const{
-        double value=mean_loss(data);if(l2_)for(const auto& layer:layers)value+=0.5*l2_*layer.tensor_weights().zero_first_column().unary(Unary::Square).sum();return value;
+    void NeuralNetwork::set_l2(const double coefficient)
+    {
+        if (!std::isfinite(coefficient) || coefficient < 0)throw std::invalid_argument("Invalid L2 coefficient");
+        l2_ = coefficient;
     }
-    FitResult NeuralNetwork::fit(const Dataset& training,const Dataset& validation,const FitOptions& options){
-        validate_dataset(training);validate_dataset(validation);
-        if(!std::isfinite(options.min_delta)||options.min_delta<0)throw std::invalid_argument("Invalid early stopping delta");
-        set_l2(options.l2);FitResult result;
-        double best_value=mean_loss(validation),patience_reference=best_value;std::size_t stale=0;
-        NeuralNetwork best=*this;
-        for(std::size_t epoch=0;epoch<options.epochs;++epoch){
-            const auto loss=learn(training,1,options.batch_size,options.shuffle).back();const double val=mean_loss(validation);
-            result.training_loss.push_back(loss);result.validation_loss.push_back(val);
-            if(val<best_value){best_value=val;best=*this;result.best_epoch=epoch+1;}
-            if(val<patience_reference-options.min_delta){patience_reference=val;stale=0;}else ++stale;
-            if(options.patience&&stale>=options.patience)break;
+
+    double NeuralNetwork::objective_loss(const Dataset& data) const
+    {
+        double value = mean_loss(data);
+        if (l2_)
+            for (const auto& layer : layers)
+                value += 0.5 * l2_ * layer.tensor_weights().zero_first_column().
+                                           unary(Unary::Square).sum();
+        return value;
+    }
+
+    FitResult NeuralNetwork::fit(const Dataset& training, const Dataset& validation, const FitOptions& options)
+    {
+        validate_dataset(training);
+        validate_dataset(validation);
+        if (!std::isfinite(options.min_delta) || options.min_delta < 0)
+            throw std::invalid_argument(
+                "Invalid early stopping delta");
+        set_l2(options.l2);
+        FitResult result;
+        double best_value = mean_loss(validation), patience_reference = best_value;
+        std::size_t stale = 0;
+        NeuralNetwork best = *this;
+        for (std::size_t epoch = 0; epoch < options.epochs; ++epoch)
+        {
+            const auto loss = learn(training, 1, options.batch_size, options.shuffle).back();
+            const double val = mean_loss(validation);
+            result.training_loss.push_back(loss);
+            result.validation_loss.push_back(val);
+            if (val < best_value)
+            {
+                best_value = val;
+                best = *this;
+                result.best_epoch = epoch + 1;
+            }
+            if (val < patience_reference - options.min_delta)
+            {
+                patience_reference = val;
+                stale = 0;
+            }
+            else ++stale;
+            if (options.patience && stale >= options.patience)break;
         }
-        *this=std::move(best);return result;
+        *this = std::move(best);
+        return result;
     }
 }

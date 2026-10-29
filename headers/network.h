@@ -1,5 +1,4 @@
 #pragma once
-#include <cstddef>
 #include <cstdint>
 #include <random>
 #include <string>
@@ -9,15 +8,19 @@
 
 namespace ml
 {
-    struct FitOptions {
-        std::size_t epochs=100,batch_size=32,patience=0;
-        bool shuffle=true;
-        double min_delta=0,l2=0;
+    struct FitOptions
+    {
+        std::size_t epochs = 100, batch_size = 32, patience = 0;
+        bool shuffle = true;
+        double min_delta = 0, l2 = 0;
     };
-    struct FitResult {
-        std::vector<double> training_loss,validation_loss;
-        std::size_t best_epoch=0;
+
+    struct FitResult
+    {
+        std::vector<double> training_loss, validation_loss;
+        std::size_t best_epoch = 0;
     };
+
     class NeuralNetwork
     {
     public:
@@ -37,7 +40,7 @@ namespace ml
         double l2_ = 0;
         void validate_topology() const;
         void validate_dataset(const Dataset& dataset) const;
-        LossKind loss_kind() const;
+        [[nodiscard]] LossKind loss_kind() const;
         Tensor batch_loss_input(const Tensor& input);
 
     public:
@@ -45,21 +48,21 @@ namespace ml
                       std::uint32_t seed = 42);
         void add_layer(int inputs, int outputs, Layer::Activation type = Layer::SIGMOID);
         Layer& get(std::size_t i);
-        const Layer& get(std::size_t i) const;
-        Layer& operator[](std::size_t i) { return get(i); }
-        const Layer& operator[](std::size_t i) const { return get(i); }
-        void set_optimizer(OptimizerOptions options);
-        const Optimizer& optimizer() const { return optimizer_; }
-        std::size_t size() const { return layers.size(); }
+        [[nodiscard]] const Layer& get(std::size_t i) const;
+        Layer& operator[](const std::size_t i) { return get(i); }
+        const Layer& operator[](const std::size_t i) const { return get(i); }
+        void set_optimizer(const OptimizerOptions& options);
+        [[nodiscard]] const Optimizer& optimizer() const { return optimizer_; }
+        [[nodiscard]] std::size_t size() const { return layers.size(); }
         std::vector<double> learn(const Dataset& dataset, std::size_t epochs, std::size_t batch_size = 0,
                                   bool shuffle = false);
-        math::Vector output(const std::vector<double>& input) const;
-        Tensor output_batch(const Tensor& input) const;
-        double mean_loss(const Dataset& dataset) const;
+        [[nodiscard]] math::Vector output(const std::vector<double>& input) const;
+        [[nodiscard]] Tensor output_batch(const Tensor& input) const;
+        [[nodiscard]] double mean_loss(const Dataset& dataset) const;
         void set_l2(double coefficient);
-        double objective_loss(const Dataset& data)const;
-        FitResult fit(const Dataset& training,const Dataset& validation,const FitOptions& options={});
-        void save(const std::string& path)const;
+        [[nodiscard]] double objective_loss(const Dataset& data) const;
+        FitResult fit(const Dataset& training, const Dataset& validation, const FitOptions& options = {});
+        void save(const std::string& path) const;
         static NeuralNetwork load(const std::string& path);
     };
 }

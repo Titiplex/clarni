@@ -5,19 +5,19 @@
 
 namespace
 {
-    int inputs_checked(int n)
+    int inputs_checked(const int n)
     {
         if (n <= 0 || n == (std::numeric_limits<int>::max)())throw std::invalid_argument("Layer input dimension");
         return n;
     }
 
-    int outputs_checked(int n)
+    int outputs_checked(const int n)
     {
         if (n <= 0)throw std::invalid_argument("Layer output dimension");
         return n;
     }
 
-    ml::Tensor column(const ml::math::Vector& v, ml::Backend backend)
+    ml::Tensor column(const ml::math::Vector& v, const ml::Backend backend)
     {
         ml::math::Matrix result(v.get_dim(), 1);
         for (int i = 0; i < v.get_dim(); ++i)result(i, 0) = v[i];
@@ -27,11 +27,11 @@ namespace
 
 namespace ml
 {
-    Layer::Layer(int inputs, int outputs, Activation type)
-        : nb_params_(inputs_checked(inputs)), layer_size_(outputs_checked(outputs)), type_(type),
+    Layer::Layer(const int nb_params, const int layer_size, const Activation activation_type)
+        : nb_params_(inputs_checked(nb_params)), layer_size_(outputs_checked(layer_size)), type_(activation_type),
           weights_host_(layer_size_, nb_params_ + 1), gradients_host_(layer_size_, nb_params_ + 1)
     {
-        if (type < IDENTITY || type > SOFTMAX)throw std::invalid_argument("Unknown activation");
+        if (activation_type < IDENTITY || activation_type > SOFTMAX)throw std::invalid_argument("Unknown activation");
         zero_grad();
     }
 
@@ -82,18 +82,18 @@ namespace ml
         init_random(rng);
     }
 
-    void Layer::init_random(std::mt19937& rng)
+    void Layer::init_random(std::mt19937& generator)
     {
         const double variance = type_ == RELU
                                     ? 2.0 / nb_params_
                                     : type_ == LEAKY_RELU
                                     ? 2.0 / ((1 + 0.01 * 0.01) * nb_params_)
                                     : 2.0 / (nb_params_ + static_cast<double>(layer_size_));
-        std::uniform_real_distribution<double> distribution(-std::sqrt(3 * variance), std::sqrt(3 * variance));
+        std::uniform_real_distribution distribution(-std::sqrt(3 * variance), std::sqrt(3 * variance));
         for (int i = 0; i < layer_size_; ++i)
         {
             weights_host_(i, 0) = 0;
-            for (int j = 1; j <= nb_params_; ++j)weights_host_(i, j) = distribution(rng);
+            for (int j = 1; j <= nb_params_; ++j)weights_host_(i, j) = distribution(generator);
         }
         invalidated();
     }
@@ -141,7 +141,7 @@ namespace ml
         return cached_z_;
     }
 
-    Tensor Layer::backward_batch(const Tensor& gradient, bool already_logits)
+    Tensor Layer::backward_batch(const Tensor& gradient, const bool already_logits)
     {
         if (!cache_valid_)throw std::logic_error("forward required before backward");
         if (gradient.rows() != layer_size_ || gradient.cols() != cached_output_.cols() || !gradient.all_finite())
@@ -180,7 +180,8 @@ namespace ml
         gradient_dirty_ = true;
     }
 
-    void Layer::apply(Optimizer& optimizer, std::size_t key, double rate, std::size_t count, double l2)
+    void Layer::apply(Optimizer& optimizer, const std::size_t key, const double rate, const std::size_t count,
+                      const double l2)
     {
         if (count == 0 || !std::isfinite(l2) || l2 < 0)throw std::invalid_argument("Invalid update parameters");
         const auto& w = tensor_weights();
@@ -193,10 +194,10 @@ namespace ml
         zero_grad();
     }
 
-    void Layer::step(double rate, std::size_t count)
+    void Layer::step(const double learning_rate, const std::size_t sample_count)
     {
         Optimizer sgd;
-        apply(sgd, 0, rate, count);
+        apply(sgd, 0, learning_rate, sample_count);
         ++revision_;
     }
 }

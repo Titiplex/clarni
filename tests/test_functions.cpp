@@ -18,8 +18,8 @@ int main()
             "squared_loss_gradient_sign", []
             {
                 // Convention annoncee dans network.cpp : dL/dprediction = prediction-target.
-                const auto g = func::simple(Vector(std::vector<double>{0.2}),
-                                            Vector(std::vector<double>{1.0}));
+                const auto g = func::simple(Vector(std::vector{0.2}),
+                                            Vector(std::vector{1.0}));
                 near(g[0], -0.8);
             }
         }

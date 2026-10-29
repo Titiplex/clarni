@@ -72,7 +72,7 @@ int main()
         {
             "empty_network_output_rejected", []
             {
-                NeuralNetwork net(0, 0.1);
+                const NeuralNetwork net(0, 0.1);
                 expect_throw<std::logic_error>([&] { (void)net.output({1.0}); });
             }
         },

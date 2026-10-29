@@ -1,6 +1,5 @@
 #pragma once
 #include "tensor.h"
-#include <cstddef>
 #include <vector>
 
 namespace ml
@@ -33,8 +32,8 @@ namespace ml
         Tensor update(std::size_t key, const Tensor& parameters, const Tensor& gradient, double rate);
         void reset(std::size_t key);
         void reset();
-        const OptimizerOptions& options() const { return options_; }
-        const std::vector<State>& states() const { return states_; }
+        [[nodiscard]] const OptimizerOptions& options() const { return options_; }
+        [[nodiscard]] const std::vector<State>& states() const { return states_; }
         void restore_states(const std::vector<State>& states);
     };
 }

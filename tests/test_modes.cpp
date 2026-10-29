@@ -6,7 +6,7 @@ using namespace ml;
 
 namespace
 {
-    NeuralNetwork make_network(NeuralNetwork::LearningType mode)
+    NeuralNetwork make_network(const NeuralNetwork::LearningType mode)
     {
         NeuralNetwork net(2, 0.3, mode, NeuralNetwork::SIMPLE, 42);
         net.add_layer(2, 3);
