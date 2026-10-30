@@ -38,8 +38,8 @@ int main()
                     require(!loader.next(), "constructor should be exhausted");
                     loader.reset_epoch();
                     const auto a = loader.next();
-                    auto c = loader.next();
                     const auto b = loader.next();
+                    auto c = loader.next();
                     require(a->indices == std::vector<std::size_t>({0, 1}) &&
                             b->indices == std::vector<std::size_t>({2, 3}) &&
                             c->indices == std::vector<std::size_t>({4}),

@@ -46,13 +46,14 @@ subprocess.run(["ar", "rcs", str(library), *objects], check=True)
 records = []
 cases = [(source.stem, source) for source in sorted((root / "ML/tests").glob("test_*.cpp"))]
 cases.append(("test_residency_mock", root / "tests/test_residency.cpp"))
+cases.append(("test_nd_cuda_mock", root / "tests/test_nd_cuda.cpp"))
 for name, source in cases:
     sources = [str(source), str(library)]
     if name == "test_dispatch":
         sources = [str(source), "src/matrix.cpp", "src/compute_device.cpp"]
     executable = build / name
     defines = ["-DCLARNI_EXPECT_CUDA=0"] if name == "test_device" else []
-    if name == "test_residency_mock":
+    if name in ("test_residency_mock", "test_nd_cuda_mock"):
         sources = [str(source), str(root / "tests/mock_resident_backend.cpp"), str(library)]
         defines = ["-DCLARNI_MOCK_GPU=1"]
     compiled = run(["g++", *flags, *defines, *sources, "-o", str(executable)])

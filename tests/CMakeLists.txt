@@ -1,4 +1,4 @@
-foreach (component matrix functions network device gradients modes activations tensor optimizers tasks training checkpoints autograd residency cuda nd embedding convolution recurrent gated_recurrent attention inference storage data_loader training_pipeline resume_pipeline)
+foreach (component matrix functions network device gradients modes activations tensor optimizers tasks training checkpoints autograd residency cuda nd embedding convolution recurrent gated_recurrent attention inference storage data_loader training_pipeline resume_pipeline nd_cuda)
     add_executable(clarni_test_${component} test_${component}.cpp)
     target_link_libraries(clarni_test_${component} PRIVATE ML)
     add_test(NAME clarni.${component} COMMAND clarni_test_${component})
@@ -25,3 +25,12 @@ add_test(NAME clarni.dispatch COMMAND clarni_test_dispatch)
 
 find_package(Threads REQUIRED)
 target_link_libraries(clarni_test_inference PRIVATE Threads::Threads)
+
+set_tests_properties(clarni.nd_cuda PROPERTIES SKIP_RETURN_CODE 77)
+add_executable(clarni_test_nd_cuda_mock test_nd_cuda.cpp mock_resident_backend.cpp)
+foreach(source IN LISTS ML_CORE_SOURCES)
+    target_sources(clarni_test_nd_cuda_mock PRIVATE "${PROJECT_SOURCE_DIR}/${source}")
+endforeach()
+target_include_directories(clarni_test_nd_cuda_mock PRIVATE "${PROJECT_SOURCE_DIR}/headers")
+target_compile_definitions(clarni_test_nd_cuda_mock PRIVATE CLARNI_MOCK_GPU=1)
+add_test(NAME clarni.nd_cuda_mock COMMAND clarni_test_nd_cuda_mock)
