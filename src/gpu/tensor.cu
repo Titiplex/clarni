@@ -320,7 +320,7 @@ namespace ml::gpu::resident
         return pointer;
     }
 
-    void release(const double* pointer, const int device) noexcept
+    void release(double* pointer, const int device) noexcept
     {
         if (pointer)
         {
