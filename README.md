@@ -166,8 +166,9 @@ Les nouvelles API `ml::nd` et `ml::nn` ajoutent des formes N-D, des modules et
 paramètres partagés, les embeddings/SkipGram, Conv1D/Conv2D et le pooling,
 RNN/GRU/LSTM avec BPTT et masques, ainsi que l'attention multi-tête et un petit
 Transformer de langage. Elles utilisent le moteur autograd et les optimiseurs
-existants. Leur implémentation est **CPU de référence** ; les chemins CUDA
-historiques restent disponibles pour les réseaux denses existants.
+existants. Le chemin CPU reste disponible ; un chemin CUDA résident couvre maintenant les
+réseaux modulaires denses et les CNN. Voir [docs/GPU_MNIST.md](docs/GPU_MNIST.md)
+pour la liste des opérations portées et les limites.
 
 Voir [docs/ARCHITECTURES.md](docs/ARCHITECTURES.md) pour les conventions, exemples,
 checkpoints, limites et commandes Windows. Les exemples `modular_mlp`,
@@ -185,3 +186,16 @@ fichiers IDX ; `sequence_pipeline` illustre le padding avec un GRU.
 Voir [docs/TRAINING_PIPELINE.md](docs/TRAINING_PIPELINE.md) pour l'API et les
 commandes Windows, et [docs/VALIDATION_TRAINING.md](docs/VALIDATION_TRAINING.md)
 pour les contrôles et les résultats réels sur un sous-ensemble MNIST.
+
+
+## CNN MNIST sur CUDA
+
+L'exemple MNIST sélectionne désormais le backend à l'exécution avec
+`--backend auto|cpu|cuda`. Le mode `cuda` exige un GPU utilisable et ne bascule pas
+silencieusement sur CPU. Conv1D/Conv2D, pooling, perte, gradients et mises à jour
+restent sur GPU ; les métriques ne téléchargent que les prédictions compactes.
+Le dtype reste float64 et les kernels spatiaux sont des implémentations de référence.
+
+Consulter [docs/GPU_MNIST.md](docs/GPU_MNIST.md) pour compiler, lancer et vérifier
+le chemin matériel. `tools/check_gpu.ps1` exige le test matériel avant d'annoncer
+une validation GPU. Les tests simulés restent explicitement distincts des tests CUDA.

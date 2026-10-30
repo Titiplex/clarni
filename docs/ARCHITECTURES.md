@@ -6,11 +6,13 @@ optimiseurs existants et construisent leurs graphes sur **le même moteur autogr
 
 ## Périmètre et exécution
 
-Le frontend `ml::nd` est une **implémentation CPU de référence**, en `double`.
-Il refuse les tenseurs CUDA : aucune copie CPU/GPU implicite n'est ajoutée à ce
-frontend. Le backend CUDA historique continue d'exister pour l'API matricielle et
-les réseaux denses existants. Ces patchs ne fournissent pas de kernels CUDA pour
-les nouvelles couches. Ils n'ajoutent aucune bibliothèque tierce à Clarni.
+Le frontend `ml::nd` conserve son implémentation CPU en `double` et dispose
+maintenant d'un chemin CUDA résident pour les réseaux denses modulaires et les
+CNN (Conv1D/Conv2D, pooling, activations et pertes). La liste exacte des opérations
+portées, les transferts et les limites sont décrits dans
+[GPU_MNIST.md](GPU_MNIST.md). Les séquences récurrentes, embeddings et Transformer
+restent CPU dans cette version. Le backend CUDA historique demeure disponible.
+Aucune dépendance à une bibliothèque de réseaux de neurones n'est ajoutée.
 
 Les nouveaux modèles et leurs tests ciblent des petits problèmes, l'apprentissage
 et la validation mathématique. La convolution directe et l'attention quadratique

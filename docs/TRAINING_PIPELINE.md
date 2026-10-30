@@ -23,10 +23,10 @@ application MNIST complète. Les anciennes API restent disponibles.
 | Applications       | CNN sur fichiers MNIST réels et GRU sur séquences synthétiques de longueurs différentes                   |
 | Mesure             | Benchmark forward avec/sans enregistrement du graphe                                                      |
 
-Ce lot ne porte pas les opérations N-D sur CUDA, ne change pas le type `double`
-en `float32`, et n'ajoute pas de vues à strides arbitraires. Dropout, AdamW,
-negative sampling et cache KV restent des développements distincts. Il ne
-prétend pas achever toute la feuille de route exploratoire.
+Le chemin CUDA résident du CNN MNIST a été ajouté dans la série suivante,
+voir [GPU_MNIST.md](GPU_MNIST.md). Le type reste `double` ; `float32`, les vues à
+strides arbitraires, Dropout, AdamW, negative sampling et cache KV restent des
+développements distincts.
 
 ## 1. Inférence et autograd
 
