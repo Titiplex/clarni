@@ -40,7 +40,7 @@ target_include_directories(ML PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/headers")
 target_compile_features(ML PUBLIC cxx_std_23)
 
 if (ML_CUDA_BUILT)
-    target_sources(ML PRIVATE src/gpu/matrix.cu src/gpu/tensor.cu)
+    target_sources(ML PRIVATE src/gpu/matrix.cu src/gpu/tensor.cu src/gpu/nd.cu)
     target_link_libraries(ML PRIVATE CUDA::cudart_static)
     if (ML_USE_CUBLAS)
         target_link_libraries(ML PRIVATE CUDA::cublas)
@@ -51,7 +51,7 @@ if (ML_CUDA_BUILT)
             CUDA_STANDARD 17 CUDA_STANDARD_REQUIRED ON CUDA_EXTENSIONS OFF
             CUDA_RUNTIME_LIBRARY Static)
 else ()
-    target_sources(ML PRIVATE src/gpu/backend_stub.cpp src/gpu/tensor_stub.cpp)
+    target_sources(ML PRIVATE src/gpu/backend_stub.cpp src/gpu/tensor_stub.cpp src/gpu/nd_stub.cpp)
     # Ne pas definir HAS_CUDA=0 si votre futur code utilise #ifdef HAS_CUDA.
 endif ()
 

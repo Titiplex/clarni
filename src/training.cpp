@@ -1,4 +1,5 @@
 #include "training.h"
+#include <cmath>
 #include <algorithm>
 #include <numbers>
 #include <stdexcept>

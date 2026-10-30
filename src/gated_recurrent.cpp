@@ -1,56 +1,64 @@
 #include "gated_recurrent.h"
+#include <cmath>
 #include <stdexcept>
 
 namespace ml::nn
 {
     namespace
     {
-        void check_state(const nd::Array& x, const nd::Array& h, const int input, int hidden)
+        void check_state(const nd::Array &x, const nd::Array &h, const int input, int hidden)
         {
             if (x.shape().size() != 2 || x.shape()[1] != input ||
                 h.shape() != nd::Shape({x.shape()[0], hidden}))
                 throw std::invalid_argument("Recurrent input/state mismatch");
         }
 
-        nd::Array gate(const nd::Array& a, const int offset, const int hidden, const Activation activation)
+        nd::Array gate(const nd::Array &a, const int offset, const int hidden,
+                       const Activation activation)
         {
             return nd::activate(nd::slice(a, 1, offset * hidden, hidden), activation);
         }
     } // namespace
-    GRUCell::GRUCell(int input, int hidden, const std::uint32_t seed) : input_(input), hidden_(hidden)
+    GRUCell::GRUCell(int input, int hidden, const std::uint32_t seed)
+        : input_(input), hidden_(hidden)
     {
         nd::numel({hidden, 3});
         int gates = hidden * 3;
         std::mt19937 gen(seed);
         weight_x = normal_parameter({input, gates}, 1 / std::sqrt(static_cast<double>(input)), gen);
-        weight_h = normal_parameter({hidden, gates}, 1 / std::sqrt(static_cast<double>(hidden)), gen);
+        weight_h =
+            normal_parameter({hidden, gates}, 1 / std::sqrt(static_cast<double>(hidden)), gen);
         bias_x = std::make_shared<Parameter>(nd::Array({gates}));
         bias_h = std::make_shared<Parameter>(nd::Array({gates}));
     }
 
-    nd::Array GRUCell::step(const nd::Array& x, const nd::Array& hidden) const
+    nd::Array GRUCell::step(const nd::Array &x, const nd::Array &hidden) const
     {
         check_state(x, hidden, input_, hidden_);
         const auto ix = nd::add(nd::matmul(x, weight_x->value()), bias_x->value());
         const auto hh = nd::add(nd::matmul(hidden, weight_h->value()), bias_h->value());
         const auto r = gate(nd::add(ix, hh), 0, hidden_, Activation::Sigmoid);
         const auto z = gate(nd::add(ix, hh), 1, hidden_, Activation::Sigmoid);
-        const auto n = nd::activate(nd::add(nd::slice(ix, 1, 2 * hidden_, hidden_),
-                                            nd::multiply(r, nd::slice(hh, 1, 2 * hidden_, hidden_))),
-                                    Activation::Tanh);
+        const auto n =
+            nd::activate(nd::add(nd::slice(ix, 1, 2 * hidden_, hidden_),
+                                 nd::multiply(r, nd::slice(hh, 1, 2 * hidden_, hidden_))),
+                         Activation::Tanh);
         return detail::choose(z, hidden, n);
     }
 
     std::vector<NamedParameter> GRUCell::named_parameters() const
     {
         return {
-            {"weight_x", weight_x}, {"weight_h", weight_h}, {"bias_x", bias_x}, {"bias_h", bias_h}
-        };
+            {"weight_x", weight_x}, {"weight_h", weight_h}, {"bias_x", bias_x}, {"bias_h", bias_h}};
     }
 
-    RNNResult GRU::run(const nd::Array& a, const std::vector<int>& lengths,
-                       const std::optional<nd::Array>& initial, const std::size_t detach_every) const
+    RNNResult GRU::run(const nd::Array &a, const std::vector<int> &lengths,
+                       const std::optional<nd::Array> &initial,
+                       const std::size_t detach_every) const
     {
+        if (a.backend() != Backend::CPU)
+            throw std::invalid_argument(
+                "Recurrent CUDA sequences are not implemented in this CNN-focused release");
         const auto valid = detail::sequence_lengths(a, cell.input_size(), lengths);
         int b = a.shape()[0], h = cell.hidden_size();
         const int t = a.shape()[1];
@@ -69,20 +77,22 @@ namespace ml::nn
         return {nd::concat(out, 1), state};
     }
 
-    LSTMCell::LSTMCell(int input, int hidden, const std::uint32_t seed) : input_(input), hidden_(hidden)
+    LSTMCell::LSTMCell(int input, int hidden, const std::uint32_t seed)
+        : input_(input), hidden_(hidden)
     {
         nd::numel({hidden, 4});
         int gates = hidden * 4;
         std::mt19937 gen(seed);
         weight_x = normal_parameter({input, gates}, 1 / std::sqrt(static_cast<double>(input)), gen);
-        weight_h = normal_parameter({hidden, gates}, 1 / std::sqrt(static_cast<double>(hidden)), gen);
+        weight_h =
+            normal_parameter({hidden, gates}, 1 / std::sqrt(static_cast<double>(hidden)), gen);
         nd::Vector values(gates, 0);
         for (int i = hidden; i < 2 * hidden; ++i)
             values[i] = 1;
         bias = std::make_shared<Parameter>(nd::Array::from({gates}, values));
     }
 
-    LSTMState LSTMCell::step(const nd::Array& x, const LSTMState& state) const
+    LSTMState LSTMCell::step(const nd::Array &x, const LSTMState &state) const
     {
         check_state(x, state.hidden, input_, hidden_);
         if (state.cell.shape() != state.hidden.shape())
@@ -103,9 +113,12 @@ namespace ml::nn
         return {{"weight_x", weight_x}, {"weight_h", weight_h}, {"bias", bias}};
     }
 
-    LSTMResult LSTM::run(const nd::Array& a, const std::vector<int>& lengths,
+    LSTMResult LSTM::run(const nd::Array &a, const std::vector<int> &lengths,
                          std::optional<LSTMState> initial, std::size_t detach_every) const
     {
+        if (a.backend() != Backend::CPU)
+            throw std::invalid_argument(
+                "Recurrent CUDA sequences are not implemented in this CNN-focused release");
         auto valid = detail::sequence_lengths(a, cell.input_size(), lengths);
         int b = a.shape()[0], t = a.shape()[1], h = cell.hidden_size();
         auto state = initial.value_or(LSTMState{nd::Array({b, h}), nd::Array({b, h})});
@@ -121,10 +134,8 @@ namespace ml::nn
             }
             auto mask = detail::timestep_mask(b, i, valid);
             auto next = cell.step(detail::timestep(a, i), state);
-            state = {
-                detail::choose(mask, next.hidden, state.hidden),
-                detail::choose(mask, next.cell, state.cell)
-            };
+            state = {detail::choose(mask, next.hidden, state.hidden),
+                     detail::choose(mask, next.cell, state.cell)};
             out.push_back(nd::reshape(nd::multiply(mask, state.hidden), {b, 1, h}));
         }
         return {nd::concat(out, 1), state.hidden, state.cell};

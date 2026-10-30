@@ -44,7 +44,7 @@ if library.exists():
     library.unlink()
 subprocess.run(["ar", "rcs", str(library), *objects], check=True)
 records = []
-cases = [(source.stem, source) for source in sorted((root / "tests").glob("test_*.cpp"))]
+cases = [(source.stem, source) for source in sorted((root / "ML/tests").glob("test_*.cpp"))]
 cases.append(("test_residency_mock", root / "tests/test_residency.cpp"))
 for name, source in cases:
     sources = [str(source), str(library)]

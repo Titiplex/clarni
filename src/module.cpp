@@ -1,4 +1,5 @@
 #include "module.h"
+#include <cmath>
 #include <fstream>
 #include <iomanip>
 #include <limits>

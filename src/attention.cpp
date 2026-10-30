@@ -1,5 +1,6 @@
 #include "attention.h"
 #include <algorithm>
+#include <cmath>
 #include <limits>
 #include <stdexcept>
 
@@ -12,10 +13,10 @@ namespace ml::nn
         using nd::Vector;
 
         std::vector<NamedParameter>
-        collect(const std::vector<std::pair<std::string, const Module*>>& children)
+        collect(const std::vector<std::pair<std::string, const Module *>> &children)
         {
             std::vector<NamedParameter> out;
-            for (auto& [prefix, module] : children)
+            for (auto &[prefix, module] : children)
                 for (auto p : module->named_parameters())
                 {
                     p.name = prefix + p.name;
@@ -24,7 +25,7 @@ namespace ml::nn
             return out;
         }
 
-        Array mask_queries(const Array& a, const std::vector<int>& lengths)
+        Array mask_queries(const Array &a, const std::vector<int> &lengths)
         {
             Vector mask(static_cast<std::size_t>(a.shape()[0]) * a.shape()[1]);
             for (int b = 0; b < a.shape()[0]; ++b)
@@ -33,8 +34,11 @@ namespace ml::nn
             return nd::multiply(a, Array::from({a.shape()[0], a.shape()[1], 1}, mask));
         }
 
-        Array masked_softmax(const Array& a, const std::vector<bool>& mask)
+        Array masked_softmax(const Array &a, const std::vector<bool> &mask)
         {
+            if (a.backend() != Backend::CPU)
+                throw std::invalid_argument(
+                    "Masked CUDA attention is not implemented in this CNN-focused release");
             int rows = a.shape()[0], cols = a.shape()[1];
             if (mask.size() != a.size())
                 throw std::invalid_argument("Attention mask size mismatch");
@@ -65,33 +69,32 @@ namespace ml::nn
                 for (int j = 0; j < cols; ++j)
                     y[static_cast<std::size_t>(i) * cols + j] /= total;
             }
-            return nd::operation(a.shape(), y, {
-                                     {
-                                         a, [y, rows, cols](const Vector& g)
-                                         {
-                                             Vector r(g.size(), 0);
-                                             for (int i = 0; i < rows; ++i)
-                                             {
-                                                 double dot = 0;
-                                                 for (int j = 0; j < cols; ++j)
-                                                 {
-                                                     const auto k = static_cast<std::size_t>(i) * cols + j;
-                                                     dot += g[k] * y[k];
-                                                 }
-                                                 for (int j = 0; j < cols; ++j)
-                                                 {
-                                                     const auto k = static_cast<std::size_t>(i) * cols + j;
-                                                     r[k] = y[k] * (g[k] - dot);
-                                                 }
-                                             }
-                                             return r;
-                                         }
-                                     }
-                                 }
-            );
+            return nd::operation(a.shape(), y,
+                                 {{a, [y, rows, cols](const Vector &g)
+                                   {
+                                       Vector r(g.size(), 0);
+                                       for (int i = 0; i < rows; ++i)
+                                       {
+                                           double dot = 0;
+                                           for (int j = 0; j < cols; ++j)
+                                           {
+                                               const auto k =
+                                                   static_cast<std::size_t>(i) * cols + j;
+                                               dot += g[k] * y[k];
+                                           }
+                                           for (int j = 0; j < cols; ++j)
+                                           {
+                                               const auto k =
+                                                   static_cast<std::size_t>(i) * cols + j;
+                                               r[k] = y[k] * (g[k] - dot);
+                                           }
+                                       }
+                                       return r;
+                                   }}});
         }
     } // namespace
-    LayerNorm::LayerNorm(int features, const double epsilon) : features_(features), epsilon_(epsilon)
+    LayerNorm::LayerNorm(int features, const double epsilon)
+        : features_(features), epsilon_(epsilon)
     {
         nd::numel({features});
         if (!std::isfinite(epsilon) || epsilon <= 0)
@@ -100,8 +103,11 @@ namespace ml::nn
         bias = std::make_shared<Parameter>(Array({features}));
     }
 
-    Array LayerNorm::forward(const Array& a)
+    Array LayerNorm::forward(const Array &a)
     {
+        if (a.backend() != Backend::CPU)
+            throw std::invalid_argument(
+                "This module is not CUDA-enabled in this CNN-focused release");
         if (a.shape().empty() || a.shape().back() != features_)
             throw std::invalid_argument("LayerNorm feature mismatch");
         const auto x = a.values();
@@ -122,43 +128,40 @@ namespace ml::nn
         }
         const auto normalized = nd::operation(
             a.shape(), y,
-            {
-                {
-                    a, [y, inverses, d](const Vector& g)
-                    {
-                        Vector result(g.size());
-                        for (std::size_t row = 0; row < inverses.size(); ++row)
-                        {
-                            double sum = 0, dot = 0;
-                            for (int j = 0; j < d; ++j)
-                            {
-                                sum += g[row * d + j];
-                                dot += g[row * d + j] * y[row * d + j];
-                            }
-                            for (int j = 0; j < d; ++j)
-                                result[row * d + j] =
-                                    inverses[row] * (g[row * d + j] - (sum + y[row * d + j] * dot) / d);
-                        }
-                        return result;
-                    }
-                }
-            });
+            {{a, [y, inverses, d](const Vector &g)
+              {
+                  Vector result(g.size());
+                  for (std::size_t row = 0; row < inverses.size(); ++row)
+                  {
+                      double sum = 0, dot = 0;
+                      for (int j = 0; j < d; ++j)
+                      {
+                          sum += g[row * d + j];
+                          dot += g[row * d + j] * y[row * d + j];
+                      }
+                      for (int j = 0; j < d; ++j)
+                          result[row * d + j] =
+                              inverses[row] * (g[row * d + j] - (sum + y[row * d + j] * dot) / d);
+                  }
+                  return result;
+              }}});
         return nd::add(nd::multiply(normalized, weight->value()), bias->value());
     }
 
-    Array scaled_dot_product_attention(const Array& q, const Array& k, const Array& v,
-                                       const std::vector<bool>& allowed)
+    Array scaled_dot_product_attention(const Array &q, const Array &k, const Array &v,
+                                       const std::vector<bool> &allowed)
     {
         if (q.shape().size() != 2 || k.shape().size() != 2 || v.shape().size() != 2 ||
             q.shape()[1] != k.shape()[1] || k.shape()[0] != v.shape()[0])
             throw std::invalid_argument("Attention Q/K/V shape mismatch");
-        const auto scores =
-            nd::scale(nd::matmul(q, nd::permute(k, {1, 0})), 1 / std::sqrt(static_cast<double>(q.shape()[1])));
+        const auto scores = nd::scale(nd::matmul(q, nd::permute(k, {1, 0})),
+                                      1 / std::sqrt(static_cast<double>(q.shape()[1])));
         const auto mask = allowed.empty() ? std::vector<bool>(scores.size(), true) : allowed;
         return nd::matmul(masked_softmax(scores, mask), v);
     }
 
-    MultiHeadSelfAttention::MultiHeadSelfAttention(const int features, const int heads, const std::uint32_t seed)
+    MultiHeadSelfAttention::MultiHeadSelfAttention(const int features, const int heads,
+                                                   const std::uint32_t seed)
         : features_(features), heads_(heads), query(features, features, seed),
           key(features, features, seed + 1), value(features, features, seed + 2),
           projection(features, features, seed + 3)
@@ -167,26 +170,26 @@ namespace ml::nn
             throw std::invalid_argument("Attention heads must divide features");
     }
 
-    Array MultiHeadSelfAttention::attend(const Array& a, const std::vector<int>& lengths,
+    Array MultiHeadSelfAttention::attend(const Array &a, const std::vector<int> &lengths,
                                          const bool causal)
     {
         const auto valid = detail::sequence_lengths(a, features_, lengths);
         const int batch = a.shape()[0], time = a.shape()[1], dimension = features_ / heads_;
-        auto split = [&](const Array& x)
-        {
-            return nd::permute(nd::reshape(x, {batch, time, heads_, dimension}), {0, 2, 1, 3});
-        };
+        auto split = [&](const Array &x)
+        { return nd::permute(nd::reshape(x, {batch, time, heads_, dimension}), {0, 2, 1, 3}); };
         auto q = split(query.forward(a)), k = split(key.forward(a)), v = split(value.forward(a));
-        auto scores = nd::scale(nd::batched_matmul(q, nd::permute(k, {0, 1, 3, 2})), 1 / std::sqrt(double(dimension)));
+        auto scores = nd::scale(nd::batched_matmul(q, nd::permute(k, {0, 1, 3, 2})),
+                                1 / std::sqrt(double(dimension)));
         std::vector<bool> allowed(scores.size(), false);
         for (int b = 0; b < batch; ++b)
             for (int head = 0; head < heads_; ++head)
                 for (int i = 0; i < time; ++i)
                     for (int j = 0; j < time; ++j)
-                        allowed[((std::size_t(b) * heads_ + head) * time + i) * time + j] = i < valid[b] && j < valid[b]
-                            && (!causal || j <= i);
-        auto probabilities = nd::reshape(masked_softmax(nd::reshape(scores, {batch * heads_ * time, time}), allowed),
-                                         scores.shape());
+                        allowed[((std::size_t(b) * heads_ + head) * time + i) * time + j] =
+                            i < valid[b] && j < valid[b] && (!causal || j <= i);
+        auto probabilities =
+            nd::reshape(masked_softmax(nd::reshape(scores, {batch * heads_ * time, time}), allowed),
+                        scores.shape());
         auto context = nd::batched_matmul(probabilities, v);
         auto merged = nd::reshape(nd::permute(context, {0, 2, 1, 3}), {batch, time, features_});
         return mask_queries(projection.forward(merged), valid);
@@ -213,7 +216,7 @@ namespace ml::nn
         nd::numel({features, max_length});
     }
 
-    Array SinusoidalPosition::add(const Array& a, const int start)
+    Array SinusoidalPosition::add(const Array &a, const int start)
     {
         if (a.shape().size() != 3 || a.shape()[2] != features_ || start < 0 ||
             a.shape()[1] > max_length_ || start > max_length_ - a.shape()[1])
@@ -224,7 +227,8 @@ namespace ml::nn
             {
                 const double angle =
                     (static_cast<double>(start) + t) / std::pow(10000.0, 2.0 * (d / 2) / features_);
-                values[static_cast<std::size_t>(t) * features_ + d] = d % 2 ? std::cos(angle) : std::sin(angle);
+                values[static_cast<std::size_t>(t) * features_ + d] =
+                    d % 2 ? std::cos(angle) : std::sin(angle);
             }
         return nd::add(a, Array::from({1, a.shape()[1], features_}, values));
     }
@@ -236,7 +240,7 @@ namespace ml::nn
     {
     }
 
-    Array TransformerBlock::run(const Array& a, const std::vector<int>& lengths, const bool causal)
+    Array TransformerBlock::run(const Array &a, const std::vector<int> &lengths, const bool causal)
     {
         const auto valid = detail::sequence_lengths(a, features_, lengths);
         const auto x = nd::add(a, attention.attend(norm1.forward(a), valid, causal));
@@ -247,13 +251,11 @@ namespace ml::nn
 
     std::vector<NamedParameter> TransformerBlock::named_parameters() const
     {
-        return collect({
-            {"norm1.", &norm1},
-            {"norm2.", &norm2},
-            {"attention.", &attention},
-            {"expand.", &expand},
-            {"contract.", &contract}
-        });
+        return collect({{"norm1.", &norm1},
+                        {"norm2.", &norm2},
+                        {"attention.", &attention},
+                        {"expand.", &expand},
+                        {"contract.", &contract}});
     }
 
     void TransformerBlock::train(const bool enabled)
@@ -266,15 +268,16 @@ namespace ml::nn
         contract.train(enabled);
     }
 
-    TransformerLM::TransformerLM(const int vocabulary, const int features, const int heads, const int feedforward,
-                                 const int max_length, const std::uint32_t seed)
+    TransformerLM::TransformerLM(const int vocabulary, const int features, const int heads,
+                                 const int feedforward, const int max_length,
+                                 const std::uint32_t seed)
         : embedding(vocabulary, features, -1, seed), positions(features, max_length),
           block(features, heads, feedforward, seed + 1), norm(features),
           head(features, vocabulary, seed + 7)
     {
     }
 
-    Array TransformerLM::logits(const TokenBatch& batch, const std::vector<int>& lengths)
+    Array TransformerLM::logits(const TokenBatch &batch, const std::vector<int> &lengths)
     {
         if (batch.shape.size() != 2)
             throw std::invalid_argument("TransformerLM IDs must be [B,T]");

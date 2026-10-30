@@ -1,4 +1,5 @@
 #pragma once
+#include <cstddef>
 #include "embedding.h"
 #include <functional>
 #include <optional>
