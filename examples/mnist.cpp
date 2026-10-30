@@ -152,6 +152,8 @@ int main(int argc, char **argv)
         OptimizerOptions optimizer;
         optimizer.kind = OptimizerKind::Adam;
         model.to(device.selected);
+        if (model.backend() != device.selected)
+            throw std::logic_error("Model migration did not match selected backend");
         training::SupervisedTrainer trainer(model, optimizer);
         auto forward = [&](const data::Batch &batch)
         { return model.forward(std::get<nd::Array>(batch.input).to(device.selected)); };
@@ -165,7 +167,9 @@ int main(int argc, char **argv)
         config << std::setprecision(17)
                << "model=Conv2D(1,4,3)-ReLU-Pool2D(2,2)-Flatten-Linear(676,10)\nbackend=" << backend
                << "\ndevice=" << device.name << "\ncuda_compiled=" << device.cuda_compiled
-               << "\nmatmul=" << gpu::resident::matmul_implementation()
+               << "\nmatmul="
+               << (device.selected == Backend::CUDA ? gpu::resident::matmul_implementation()
+                                                    : "CPU reference matmul")
                << "\ndtype="
                   "float64\nseed="
                << options.seed << "\nloaded_train=" << full->size()

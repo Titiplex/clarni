@@ -108,6 +108,13 @@ namespace ml::gpu::detail
             return a[source_index(index, d)];
         if (op == NDOperation::IndexBackward)
             return index_backward(index, a, d);
+        if (op == NDOperation::NonNegative)
+        {
+            for (int i = 0; i < d.samples; ++i)
+                if (!(a[i] >= 0 && a[i] <= DBL_MAX))
+                    return 0;
+            return 1;
+        }
         if (op == NDOperation::Norm)
         {
             double scale = 0, ssq = 1;

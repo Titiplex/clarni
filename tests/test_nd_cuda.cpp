@@ -2,12 +2,36 @@
 #include "convolution.h"
 #include "test_support.h"
 #include "training.h"
+#include <chrono>
 #include <filesystem>
 #include <limits>
 using namespace ml;
 using namespace ml::nd;
 namespace
 {
+    struct TemporaryDirectory
+    {
+        std::filesystem::path path;
+        TemporaryDirectory()
+        {
+            auto nonce = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+            for (int attempt = 0; attempt < 100; ++attempt)
+            {
+                path =
+                    std::filesystem::temp_directory_path() /
+                    ("clarni-cuda-test-" + std::to_string(nonce) + "-" + std::to_string(attempt));
+                if (std::filesystem::create_directory(path))
+                    return;
+            }
+            throw std::runtime_error("Cannot create isolated test directory");
+        }
+        ~TemporaryDirectory()
+        {
+            std::error_code error;
+            std::filesystem::remove_all(path, error);
+        }
+    };
+
     void compare(const Vector &a, const Vector &b, double tolerance = 1e-8)
     {
         require(a.size() == b.size(), "size mismatch");
@@ -198,6 +222,11 @@ int main()
                                   state.second.backend() == Backend::CUDA,
                               "Adam moments left VRAM");
                   }
+              auto moment_state = trainer.optimizer().states();
+              gpu::resident::reset_statistics();
+              trainer.restore_optimizer(moment_state);
+              require(gpu::resident::statistics().downloaded_bytes <= 128,
+                      "optimizer-state validation downloaded full moments");
               auto logits = model->forward(x);
               double loss = cross_entropy(logits, labels).item();
               training::ClassificationMetrics metrics(2);
@@ -208,6 +237,10 @@ int main()
                           stats.downloaded_bytes <= labels.size() * sizeof(double) + 16,
                       "metrics downloaded logits instead of compact predictions");
               require(metrics.result().count == 4, "metric count");
+              require(on_gpu(Array::from({2}, {0, 1})).variable().value().all_nonnegative(),
+                      "nonnegative GPU predicate");
+              require(!on_gpu(Array::from({2}, {-1, 1})).variable().value().all_nonnegative(),
+                      "negative GPU predicate");
               auto huge = Array::from({2}, {1e200, -1e200});
               near(on_gpu(huge).variable().value().l2_norm() / 1e200, std::sqrt(2.0));
           }},
@@ -220,6 +253,13 @@ int main()
               nn::Trainer ct(*cpu, options), dt(*device, options);
               auto x = images(), dx = on_gpu(x);
               std::vector<int> labels{0, 1, 0, 1};
+              auto expected_inference = device->forward(dx).values();
+              {
+                  ad::NoGradGuard no_grad;
+                  auto inference = device->forward(dx);
+                  require(!inference.variable().requires_grad(), "CUDA inference recorded a graph");
+                  compare(inference.values(), expected_inference);
+              }
               double before = cross_entropy(device->forward(dx), labels).item();
               for (int i = 0; i < 20; ++i)
               {
@@ -229,9 +269,8 @@ int main()
               weights(*cpu, *device);
               require(cross_entropy(device->forward(dx), labels).item() < before,
                       "CUDA CNN loss did not decrease");
-              auto path =
-                  (std::filesystem::temp_directory_path() / "clarni_nd_cuda_checkpoint_test.nn")
-                      .string();
+              TemporaryDirectory temporary;
+              auto path = (temporary.path / "checkpoint.nn").string();
               nn::save_checkpoint(path, *device, &dt);
               auto loaded = cnn(Backend::CUDA), loaded_cpu = cnn(Backend::CPU);
               nn::Trainer lt(*loaded, options), lct(*loaded_cpu, options);
@@ -257,6 +296,8 @@ int main()
               expect_throw<std::invalid_argument>([&] { batched_matmul(x, x); });
               nn::LayerNorm norm(2);
               expect_throw<std::invalid_argument>([&] { norm.forward(x); });
+              nn::RNN recurrent(2, 3);
+              expect_throw<std::invalid_argument>([&] { recurrent.run(reshape(x, {1, 2, 2})); });
               require(gpu::resident::statistics().downloads == 0,
                       "unsupported operation silently copied data to CPU");
           }}});

@@ -93,6 +93,7 @@ namespace ml
                                           const Tensor *b = nullptr,
                                           const Tensor *c = nullptr) const;
         [[nodiscard]] double l2_norm() const;
+        [[nodiscard]] bool all_nonnegative() const;
         [[nodiscard]] Tensor reshape(int rows, int cols) const;
         [[nodiscard]] Tensor transpose() const;
         [[nodiscard]] Tensor matmul(const Tensor &other) const;

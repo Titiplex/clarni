@@ -17,6 +17,7 @@ namespace ml::gpu::resident
         CrossEntropy,
         CrossEntropyGradient,
         Norm,
+        NonNegative,
         Argmax
     };
     struct NDDescriptor

@@ -139,6 +139,22 @@ namespace ml
         return out;
     }
 
+    bool Tensor::all_nonnegative() const
+    {
+        if (backend_ == Backend::CPU)
+        {
+            for (double v : cpu_values())
+                if (!(v >= 0 && std::isfinite(v)))
+                    return false;
+            return true;
+        }
+        if (size() > static_cast<std::size_t>((std::numeric_limits<int>::max)()))
+            throw std::length_error("N-D predicate exceeds current index range");
+        gpu::resident::NDDescriptor d;
+        d.samples = static_cast<int>(size());
+        return nd_operation(gpu::resident::NDOperation::NonNegative, 1, 1, d).item() == 1;
+    }
+
     double Tensor::l2_norm() const
     {
         if (backend_ == Backend::CPU)
