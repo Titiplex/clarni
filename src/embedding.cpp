@@ -9,23 +9,23 @@
 
 namespace ml::nn
 {
-    Vocabulary::Vocabulary(const std::vector<std::string> &corpus, std::size_t min_count)
+    Vocabulary::Vocabulary(const std::vector<std::string>& corpus, const std::size_t min_count)
     {
         if (!min_count)
             throw std::invalid_argument("min_count must be positive");
         std::unordered_map<std::string, std::size_t> counts;
-        for (auto &token : corpus)
+        for (auto& token : corpus)
         {
             if (token.empty())
                 throw std::invalid_argument("Empty vocabulary token");
             ++counts[token];
         }
         std::vector<std::string> words;
-        for (auto &[word, count] : counts)
+        for (auto& [word, count] : counts)
             if (count >= min_count && !indices_.contains(word))
                 words.push_back(word);
         std::ranges::sort(words);
-        for (auto &word : words)
+        for (auto& word : words)
         {
             if (tokens_.size() >= static_cast<std::size_t>((std::numeric_limits<int>::max)()))
                 throw std::length_error("Vocabulary too large");
@@ -34,40 +34,40 @@ namespace ml::nn
         }
     }
 
-    int Vocabulary::id(const std::string &word) const
+    int Vocabulary::id(const std::string& word) const
     {
         const auto it = indices_.find(word);
         return it == indices_.end() ? unk_id : it->second;
     }
 
-    const std::string &Vocabulary::token(const int i) const
+    const std::string& Vocabulary::token(const int i) const
     {
         if (i < 0 || i >= size())
             throw std::out_of_range("Token id");
         return tokens_[i];
     }
 
-    std::vector<int> Vocabulary::encode(const std::vector<std::string> &words) const
+    std::vector<int> Vocabulary::encode(const std::vector<std::string>& words) const
     {
         std::vector<int> ids;
-        for (auto &w : words)
+        for (auto& w : words)
             ids.push_back(id(w));
         return ids;
     }
 
-    void Vocabulary::save(const std::string &path) const
+    void Vocabulary::save(const std::string& path) const
     {
         std::ofstream out(path);
         if (!out)
             throw std::runtime_error("Cannot write vocabulary");
         out << "CLARNI_VOCAB 1\n" << size() << '\n';
-        for (auto &token : tokens_)
+        for (auto& token : tokens_)
             out << std::quoted(token) << '\n';
         if (!out)
             throw std::runtime_error("Vocabulary write failed");
     }
 
-    Vocabulary Vocabulary::load(const std::string &path)
+    Vocabulary Vocabulary::load(const std::string& path)
     {
         std::ifstream in(path);
         std::string magic;
@@ -92,7 +92,7 @@ namespace ml::nn
         return out;
     }
 
-    std::vector<std::string> whitespace_tokens(const std::string &text)
+    std::vector<std::string> whitespace_tokens(const std::string& text)
     {
         std::istringstream in(text);
         std::vector<std::string> out;
@@ -102,7 +102,7 @@ namespace ml::nn
         return out;
     }
 
-    Embedding::Embedding(int vocabulary, int dimension, int padding_idx, const std::uint32_t seed)
+    Embedding::Embedding(int vocabulary, int dimension, const int padding_idx, const std::uint32_t seed)
         : vocabulary_(vocabulary), dimension_(dimension), padding_(padding_idx)
     {
         nd::numel({vocabulary, dimension});
@@ -120,7 +120,7 @@ namespace ml::nn
         }
     }
 
-    nd::Array Embedding::lookup(const TokenBatch &batch)
+    nd::Array Embedding::lookup(const TokenBatch& batch)
     {
         if (weight->value().backend() != Backend::CPU)
             throw std::invalid_argument(
@@ -141,21 +141,25 @@ namespace ml::nn
         }
         return nd::operation(
             shape, std::move(values),
-            {{weight->value(), [ids = batch.ids, dim = dimension_, vocab = vocabulary_,
-                                pad = padding_](const nd::Vector &g)
-              {
-                  nd::Vector result(static_cast<std::size_t>(vocab) * dim, 0);
-                  for (std::size_t i = 0; i < ids.size(); ++i)
-                      if (ids[i] != pad)
-                      {
-                          for (int d = 0; d < dim; ++d)
-                              result[ids[i] * dim + d] += g[i * dim + d];
-                      }
-                  return result;
-              }}});
+            {
+                {
+                    weight->value(), [ids = batch.ids, dim = dimension_, vocab = vocabulary_,
+                        pad = padding_](const nd::Vector& g)
+                    {
+                        nd::Vector result(static_cast<std::size_t>(vocab) * dim, 0);
+                        for (std::size_t i = 0; i < ids.size(); ++i)
+                            if (ids[i] != pad)
+                            {
+                                for (int d = 0; d < dim; ++d)
+                                    result[ids[i] * dim + d] += g[i * dim + d];
+                            }
+                        return result;
+                    }
+                }
+            });
     }
 
-    ContextPairs skipgram_pairs(const std::vector<int> &sentence, const int window, int padding_id)
+    ContextPairs skipgram_pairs(const std::vector<int>& sentence, const int window, const int padding_id)
     {
         if (window <= 0)
             throw std::invalid_argument("Invalid context window");
@@ -181,7 +185,7 @@ namespace ml::nn
     {
     }
 
-    nd::Array SkipGram::logits(const std::vector<int> &centers)
+    nd::Array SkipGram::logits(const std::vector<int>& centers)
     {
         return nd::matmul(input.lookup({centers, {static_cast<int>(centers.size())}}),
                           nd::permute(output.weight->value(), {1, 0}));

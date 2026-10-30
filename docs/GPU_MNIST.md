@@ -12,11 +12,11 @@ les dépendances optionnelles déjà prévues par le projet.
 
 `mnist` accepte maintenant :
 
-| Option | Comportement |
-|---|---|
+| Option           | Comportement                                                                                |
+|------------------|---------------------------------------------------------------------------------------------|
 | `--backend auto` | Valeur par défaut ; CUDA si le backend est compilé et utilisable, sinon CPU avec diagnostic |
-| `--backend cpu` | Force le chemin CPU |
-| `--backend cuda` | Exige CUDA ; erreur explicite si compilation, pilote ou GPU indisponible |
+| `--backend cpu`  | Force le chemin CPU                                                                         |
+| `--backend cuda` | Exige CUDA ; erreur explicite si compilation, pilote ou GPU indisponible                    |
 
 `config.txt` enregistre le backend réellement sélectionné, le nom du périphérique,
 la présence du backend compilé et l'implémentation de matmul. La valeur CPU n'est
@@ -110,22 +110,22 @@ sont des frontières explicites où une lecture complète sur CPU est attendue.
 
 ## Opérations portées
 
-| Opération | Forward CUDA | Backward CUDA |
-|---|---|---|
-| Reshape / Flatten | Partage de stockage | Partage / réinterprétation |
-| Broadcast, permutation, slice | Kernel d'indexation | Kernel de réduction / indexation inverse |
-| Add, multiply, affine | Kernels Tensor existants | Kernels Tensor existants |
-| Identity, ReLU, LeakyReLU, tanh, sigmoid | Kernels Tensor existants | Kernels Tensor existants |
-| Matmul de rang 2 / Linear | CUDA de référence ou cuBLAS | Produits matriciels CUDA |
-| Sum, mean, réduction par axe | Kernels de réduction | Broadcasting CUDA |
-| Softmax par axe | Permutation + softmax Tensor CUDA | Softmax backward + permutation inverse |
-| MSE | Composition d'opérations résidentes | Autograd résident |
-| Cross-entropy avec labels entiers | Log-sum-exp stable CUDA | Gradient CUDA, padding ignoré |
-| Conv1D / Conv2D | Corrélation croisée CUDA | Gradients entrée, poids et biais |
-| Max / average pooling 1D et 2D | CUDA | CUDA, y compris fenêtres chevauchantes |
-| GlobalMaxPool1D | Pooling + reshape | Même chemin |
-| Norme et clipping global | Normes par paramètre sur GPU, combinaison de scalaires sur CPU | Facteur appliqué sur GPU |
-| SGD, Momentum, Adam | Mises à jour Tensor sur GPU | Moments conservés sur GPU |
+| Opération                                | Forward CUDA                                                   | Backward CUDA                            |
+|------------------------------------------|----------------------------------------------------------------|------------------------------------------|
+| Reshape / Flatten                        | Partage de stockage                                            | Partage / réinterprétation               |
+| Broadcast, permutation, slice            | Kernel d'indexation                                            | Kernel de réduction / indexation inverse |
+| Add, multiply, affine                    | Kernels Tensor existants                                       | Kernels Tensor existants                 |
+| Identity, ReLU, LeakyReLU, tanh, sigmoid | Kernels Tensor existants                                       | Kernels Tensor existants                 |
+| Matmul de rang 2 / Linear                | CUDA de référence ou cuBLAS                                    | Produits matriciels CUDA                 |
+| Sum, mean, réduction par axe             | Kernels de réduction                                           | Broadcasting CUDA                        |
+| Softmax par axe                          | Permutation + softmax Tensor CUDA                              | Softmax backward + permutation inverse   |
+| MSE                                      | Composition d'opérations résidentes                            | Autograd résident                        |
+| Cross-entropy avec labels entiers        | Log-sum-exp stable CUDA                                        | Gradient CUDA, padding ignoré            |
+| Conv1D / Conv2D                          | Corrélation croisée CUDA                                       | Gradients entrée, poids et biais         |
+| Max / average pooling 1D et 2D           | CUDA                                                           | CUDA, y compris fenêtres chevauchantes   |
+| GlobalMaxPool1D                          | Pooling + reshape                                              | Même chemin                              |
+| Norme et clipping global                 | Normes par paramètre sur GPU, combinaison de scalaires sur CPU | Facteur appliqué sur GPU                 |
+| SGD, Momentum, Adam                      | Mises à jour Tensor sur GPU                                    | Moments conservés sur GPU                |
 
 L'indexation CUDA couvre les rangs jusqu'à 8 ; les opérations CPU conservent
 leur comportement antérieur. Les convolutions prennent stride, padding nul,

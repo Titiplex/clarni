@@ -16,7 +16,7 @@ namespace ml::gpu::resident
     };
 
     double* allocate(std::size_t count, int device);
-    void release(double* pointer, int device) noexcept;
+    void release(const double* pointer, int device) noexcept;
     void fill(double* pointer, std::size_t count, double value, int device);
     void upload(double* destination, const double* source, std::size_t count, int device);
     void download(double* destination, const double* source, std::size_t count, int device);

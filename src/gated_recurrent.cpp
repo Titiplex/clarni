@@ -6,14 +6,14 @@ namespace ml::nn
 {
     namespace
     {
-        void check_state(const nd::Array &x, const nd::Array &h, const int input, int hidden)
+        void check_state(const nd::Array& x, const nd::Array& h, const int input, int hidden)
         {
             if (x.shape().size() != 2 || x.shape()[1] != input ||
                 h.shape() != nd::Shape({x.shape()[0], hidden}))
                 throw std::invalid_argument("Recurrent input/state mismatch");
         }
 
-        nd::Array gate(const nd::Array &a, const int offset, const int hidden,
+        nd::Array gate(const nd::Array& a, const int offset, const int hidden,
                        const Activation activation)
         {
             return nd::activate(nd::slice(a, 1, offset * hidden, hidden), activation);
@@ -32,7 +32,7 @@ namespace ml::nn
         bias_h = std::make_shared<Parameter>(nd::Array({gates}));
     }
 
-    nd::Array GRUCell::step(const nd::Array &x, const nd::Array &hidden) const
+    nd::Array GRUCell::step(const nd::Array& x, const nd::Array& hidden) const
     {
         check_state(x, hidden, input_, hidden_);
         const auto ix = nd::add(nd::matmul(x, weight_x->value()), bias_x->value());
@@ -49,11 +49,12 @@ namespace ml::nn
     std::vector<NamedParameter> GRUCell::named_parameters() const
     {
         return {
-            {"weight_x", weight_x}, {"weight_h", weight_h}, {"bias_x", bias_x}, {"bias_h", bias_h}};
+            {"weight_x", weight_x}, {"weight_h", weight_h}, {"bias_x", bias_x}, {"bias_h", bias_h}
+        };
     }
 
-    RNNResult GRU::run(const nd::Array &a, const std::vector<int> &lengths,
-                       const std::optional<nd::Array> &initial,
+    RNNResult GRU::run(const nd::Array& a, const std::vector<int>& lengths,
+                       const std::optional<nd::Array>& initial,
                        const std::size_t detach_every) const
     {
         if (a.backend() != Backend::CPU)
@@ -92,7 +93,7 @@ namespace ml::nn
         bias = std::make_shared<Parameter>(nd::Array::from({gates}, values));
     }
 
-    LSTMState LSTMCell::step(const nd::Array &x, const LSTMState &state) const
+    LSTMState LSTMCell::step(const nd::Array& x, const LSTMState& state) const
     {
         check_state(x, state.hidden, input_, hidden_);
         if (state.cell.shape() != state.hidden.shape())
@@ -113,7 +114,7 @@ namespace ml::nn
         return {{"weight_x", weight_x}, {"weight_h", weight_h}, {"bias", bias}};
     }
 
-    LSTMResult LSTM::run(const nd::Array &a, const std::vector<int> &lengths,
+    LSTMResult LSTM::run(const nd::Array& a, const std::vector<int>& lengths,
                          std::optional<LSTMState> initial, std::size_t detach_every) const
     {
         if (a.backend() != Backend::CPU)
@@ -134,8 +135,10 @@ namespace ml::nn
             }
             auto mask = detail::timestep_mask(b, i, valid);
             auto next = cell.step(detail::timestep(a, i), state);
-            state = {detail::choose(mask, next.hidden, state.hidden),
-                     detail::choose(mask, next.cell, state.cell)};
+            state = {
+                detail::choose(mask, next.hidden, state.hidden),
+                detail::choose(mask, next.cell, state.cell)
+            };
             out.push_back(nd::reshape(nd::multiply(mask, state.hidden), {b, 1, h}));
         }
         return {nd::concat(out, 1), state.hidden, state.cell};

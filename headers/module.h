@@ -48,7 +48,7 @@ namespace ml::nn
             return {};
         }
 
-        void to(Backend);
+        void to(Backend) const;
         [[nodiscard]] Backend backend() const;
         virtual void train(const bool enabled = true)
         {

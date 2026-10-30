@@ -17,8 +17,8 @@ namespace ml
             throw std::invalid_argument("Invalid optimizer epsilon");
     }
 
-    Tensor Optimizer::update(const std::size_t key, const Tensor &parameters,
-                             const Tensor &gradient, const double rate)
+    Tensor Optimizer::update(const std::size_t key, const Tensor& parameters,
+                             const Tensor& gradient, const double rate)
     {
         if (!parameters.size() || !std::isfinite(rate) || rate <= 0 ||
             parameters.rows() != gradient.rows() || parameters.cols() != gradient.cols() ||
@@ -54,7 +54,7 @@ namespace ml
                 next.first =
                     next.first.affine(options_.beta1) + gradient.affine(1 - options_.beta1);
                 next.second = next.second.affine(options_.beta2) +
-                              gradient.unary(Unary::Square).affine(1 - options_.beta2);
+                    gradient.unary(Unary::Square).affine(1 - options_.beta2);
             }
             direction = next.first;
         }
@@ -78,25 +78,26 @@ namespace ml
         if (key < states_.size())
             states_[key] = State();
     }
+
     void Optimizer::reset()
     {
         states_.clear();
     }
 
-    void Optimizer::restore_states(const std::vector<State> &states)
+    void Optimizer::restore_states(const std::vector<State>& states)
     {
-        for (const auto &state : states)
+        for (const auto& state : states)
             if (state.steps)
             {
                 if (state.rows <= 0 || state.cols <= 0)
                     throw std::invalid_argument("Invalid optimizer state shape");
                 if (options_.kind != OptimizerKind::SGD &&
                     (state.first.rows() != state.rows || state.first.cols() != state.cols ||
-                     !state.first.all_finite()))
+                        !state.first.all_finite()))
                     throw std::invalid_argument("Invalid first moment");
                 if (options_.kind == OptimizerKind::Adam &&
                     (state.second.rows() != state.rows || state.second.cols() != state.cols ||
-                     !state.second.all_finite()))
+                        !state.second.all_finite()))
                     throw std::invalid_argument("Invalid second moment");
                 if (options_.kind == OptimizerKind::Adam && !state.second.all_nonnegative())
                     throw std::invalid_argument("Negative or non-finite second moment");

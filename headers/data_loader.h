@@ -129,8 +129,8 @@ namespace ml::data
         std::size_t cursor_, epoch_ = 0;
 
     public:
-        DataLoader(std::shared_ptr<const Dataset>, LoaderOptions options = {},
-                   Collator collator = make_collator());
+        explicit DataLoader(std::shared_ptr<const Dataset>, LoaderOptions options = {},
+                            Collator collator = make_collator());
         void reset_epoch(); // starts a new epoch; constructor is initially exhausted
         std::optional<Batch> next();
 

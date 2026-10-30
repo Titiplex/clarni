@@ -11,8 +11,9 @@ namespace ml
     struct Tensor::Buffer
     {
         std::vector<double> values;
-        double *device_values = nullptr;
+        double* device_values = nullptr;
         int device = -1;
+
         ~Buffer()
         {
             if (device_values)
@@ -60,21 +61,21 @@ namespace ml
             throw std::invalid_argument("Unknown tensor backend");
     }
 
-    const double *Tensor::read() const
+    const double* Tensor::read() const
     {
         if (backend_ != Backend::CPU)
             throw std::logic_error("GPU tensor cannot be dereferenced on CPU");
         return buffer_->values.data();
     }
 
-    double *Tensor::write() const
+    double* Tensor::write() const
     {
         if (backend_ != Backend::CPU)
             throw std::logic_error("GPU tensor cannot be dereferenced on CPU");
         return buffer_->values.data();
     }
 
-    void Tensor::compatible(const Tensor &other, const bool shape) const
+    void Tensor::compatible(const Tensor& other, const bool shape) const
     {
         if (backend_ != other.backend_ ||
             (backend_ == Backend::CUDA && buffer_->device != other.buffer_->device) ||
@@ -83,7 +84,7 @@ namespace ml
     }
 
     Tensor Tensor::device_operation(const gpu::resident::Operation operation, const int output_rows,
-                                    const int output_cols, const Tensor *b, const Tensor *c,
+                                    const int output_cols, const Tensor* b, const Tensor* c,
                                     const int other, const int auxiliary, const double scale,
                                     const double offset) const
     {
@@ -122,8 +123,8 @@ namespace ml
     }
 
     Tensor Tensor::nd_operation(gpu::resident::NDOperation operation, int rows, int cols,
-                                const gpu::resident::NDDescriptor &descriptor, const Tensor *b,
-                                const Tensor *c) const
+                                const gpu::resident::NDDescriptor& descriptor, const Tensor* b,
+                                const Tensor* c) const
     {
         if (backend_ != Backend::CUDA)
             throw std::invalid_argument("N-D device bridge expects CUDA storage");
@@ -171,7 +172,7 @@ namespace ml
         return nd_operation(gpu::resident::NDOperation::Norm, 1, 1, d).item();
     }
 
-    Tensor Tensor::from_matrix(const math::Matrix &matrix, const Backend backend)
+    Tensor Tensor::from_matrix(const math::Matrix& matrix, const Backend backend)
     {
         Tensor result(matrix.get_x(), matrix.get_y(), 0, backend);
         std::vector<double> values(result.size());
@@ -190,7 +191,7 @@ namespace ml
     {
         math::Matrix result(rows_, cols_);
         std::vector<double> downloaded;
-        const double *values = nullptr;
+        const double* values = nullptr;
         if (backend_ == Backend::CPU)
             values = read();
         else
@@ -225,7 +226,7 @@ namespace ml
         return from_matrix(to_matrix(), backend);
     }
 
-    Tensor Tensor::operator+(const Tensor &other) const
+    Tensor Tensor::operator+(const Tensor& other) const
     {
         compatible(other);
         if (backend_ == Backend::CUDA)
@@ -236,7 +237,7 @@ namespace ml
         return out;
     }
 
-    Tensor Tensor::operator-(const Tensor &other) const
+    Tensor Tensor::operator-(const Tensor& other) const
     {
         compatible(other);
         if (backend_ == Backend::CUDA)
@@ -247,7 +248,7 @@ namespace ml
         return out;
     }
 
-    Tensor Tensor::hadamard(const Tensor &other) const
+    Tensor Tensor::hadamard(const Tensor& other) const
     {
         compatible(other);
         if (backend_ == Backend::CUDA)
@@ -258,7 +259,7 @@ namespace ml
         return out;
     }
 
-    Tensor Tensor::divide(const Tensor &other) const
+    Tensor Tensor::divide(const Tensor& other) const
     {
         compatible(other);
         if (backend_ == Backend::CUDA)
@@ -327,7 +328,7 @@ namespace ml
         return out;
     }
 
-    Tensor Tensor::matmul(const Tensor &other) const
+    Tensor Tensor::matmul(const Tensor& other) const
     {
         compatible(other, false);
         if (cols_ != other.rows_)
@@ -341,7 +342,7 @@ namespace ml
                 double sum = 0;
                 for (int k = 0; k < cols_; ++k)
                     sum += read()[static_cast<std::size_t>(i) * cols_ + k] *
-                           other.read()[static_cast<std::size_t>(k) * other.cols_ + j];
+                        other.read()[static_cast<std::size_t>(k) * other.cols_ + j];
                 out.write()[static_cast<std::size_t>(i) * other.cols_ + j] = sum;
             }
         return out;
@@ -492,7 +493,7 @@ namespace ml
         return out;
     }
 
-    Tensor Tensor::activation_backward(const Tensor &output, const Tensor &upstream,
+    Tensor Tensor::activation_backward(const Tensor& output, const Tensor& upstream,
                                        Activation activation) const
     {
         compatible(output);
@@ -549,7 +550,7 @@ namespace ml
         return out;
     }
 
-    LossResult Tensor::loss(const Tensor &target, LossKind kind) const
+    LossResult Tensor::loss(const Tensor& target, LossKind kind) const
     {
         compatible(target);
         if (rows_ == 0 || cols_ == 0)
@@ -652,6 +653,7 @@ namespace ml
     {
         return values.sum() / values.cols();
     }
+
     void Tensor::synchronize() const
     {
         if (backend_ == Backend::CUDA)

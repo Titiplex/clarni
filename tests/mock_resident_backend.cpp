@@ -13,12 +13,13 @@ namespace ml::gpu
     {
         return true;
     }
+
     ProbeResult probe()
     {
         return {true, 0, "simulated CUDA", "mock backend, not hardware"};
     }
 
-    void matmul(const double *a, const double *b, double *c, const int rows, const int inner,
+    void matmul(const double* a, const double* b, double* c, const int rows, const int inner,
                 const int cols, int)
     {
         for (int i = 0; i < rows; ++i)
@@ -27,18 +28,20 @@ namespace ml::gpu
                 double sum = 0;
                 for (int k = 0; k < inner; ++k)
                     sum += a[static_cast<std::size_t>(i) * inner + k] *
-                           b[static_cast<std::size_t>(k) * cols + j];
+                        b[static_cast<std::size_t>(k) * cols + j];
                 c[static_cast<std::size_t>(i) * cols + j] = sum;
             }
     }
 
-    void elementwise(const double *a, const double *b, double *c, const std::size_t count,
+    void elementwise(const double* a, const double* b, double* c, const std::size_t count,
                      const Elementwise operation, const double scalar, int)
     {
         for (std::size_t i = 0; i < count; ++i)
-            c[i] = operation == Elementwise::Add        ? a[i] + b[i]
-                   : operation == Elementwise::Subtract ? a[i] - b[i]
-                                                        : a[i] * scalar;
+            c[i] = operation == Elementwise::Add
+                       ? a[i] + b[i]
+                       : operation == Elementwise::Subtract
+                       ? a[i] - b[i]
+                       : a[i] * scalar;
     }
 } // namespace ml::gpu
 
@@ -48,7 +51,7 @@ namespace ml::gpu::resident
     {
         Statistics counters;
 
-        Tensor tensor(const double *data, const int rows, const int cols)
+        Tensor tensor(const double* data, const int rows, const int cols)
         {
             math::Matrix m(rows, cols);
             for (int i = 0; i < rows; ++i)
@@ -57,7 +60,7 @@ namespace ml::gpu::resident
             return Tensor::from_matrix(m);
         }
 
-        void copy(const Tensor &value, double *output)
+        void copy(const Tensor& value, double* output)
         {
             auto m = value.to_matrix();
             for (int i = 0; i < m.get_x(); ++i)
@@ -66,14 +69,14 @@ namespace ml::gpu::resident
         }
     } // namespace
 
-    void nd_operation(NDOperation op, const NDDescriptor &d, const double *a, const double *b,
-                      const double *c, double *out, std::size_t count, int)
+    void nd_operation(const NDOperation op, const NDDescriptor& d, const double* a, const double* b,
+                      const double* c, double* out, const std::size_t count, int)
     {
         for (std::size_t i = 0; i < count; ++i)
             out[i] = detail::nd_value(op, d, a, b, c, i);
     }
 
-    double *allocate(const std::size_t count, int)
+    double* allocate(const std::size_t count, int)
     {
         if (!count)
             return nullptr;
@@ -81,18 +84,18 @@ namespace ml::gpu::resident
         return new double[count];
     }
 
-    void release(double *pointer, int) noexcept
+    void release(const double* pointer, int) noexcept
     {
         delete[] pointer;
     } // NOLINT(*-non-const-parameter)
 
-    void fill(double *pointer, const std::size_t count, const double value, int)
+    void fill(double* pointer, const std::size_t count, const double value, int)
     {
         if (count)
             std::fill_n(pointer, count, value);
     }
 
-    void upload(double *destination, const double *source, const std::size_t count, int)
+    void upload(double* destination, const double* source, const std::size_t count, int)
     {
         if (count)
         {
@@ -102,7 +105,7 @@ namespace ml::gpu::resident
         }
     }
 
-    void download(double *destination, const double *source, const std::size_t count, int)
+    void download(double* destination, const double* source, const std::size_t count, int)
     {
         if (count)
         {
@@ -112,7 +115,7 @@ namespace ml::gpu::resident
         }
     }
 
-    void operation(Operation op, const double *a, const double *b, const double *c, double *out,
+    void operation(Operation op, const double* a, const double* b, const double* c, double* out,
                    int rows, int cols, int output_rows, int output_cols, int other, int auxiliary,
                    double scale, double offset, int)
     {
@@ -178,16 +181,16 @@ namespace ml::gpu::resident
         copy(result, out);
     }
 
-    void loss(const double *logits, const double *target, double *values, double *gradient,
+    void loss(const double* logits, const double* target, double* values, double* gradient,
               const int rows, const int cols, int kind, int)
     {
         auto result = tensor(logits, rows, cols)
-                          .loss(tensor(target, rows, cols), static_cast<LossKind>(kind));
+            .loss(tensor(target, rows, cols), static_cast<LossKind>(kind));
         copy(result.values, values);
         copy(result.gradient, gradient);
     }
 
-    double sum(const double *pointer, const std::size_t count, int)
+    double sum(const double* pointer, const std::size_t count, int)
     {
         double value = 0;
         for (std::size_t i = 0; i < count; ++i)
@@ -195,7 +198,7 @@ namespace ml::gpu::resident
         return value;
     }
 
-    bool all_finite(const double *pointer, const std::size_t count, int)
+    bool all_finite(const double* pointer, const std::size_t count, int)
     {
         for (std::size_t i = 0; i < count; ++i)
             if (!std::isfinite(pointer[i]))
@@ -207,14 +210,17 @@ namespace ml::gpu::resident
     {
         return counters;
     }
+
     void reset_statistics() noexcept
     {
         counters = {};
     }
 
-    void synchronize(int) {}
+    void synchronize(int)
+    {
+    }
 
-    const char *matmul_implementation() noexcept
+    const char* matmul_implementation() noexcept
     {
         return "simulation";
     }

@@ -6,20 +6,20 @@ Environnement : Linux x86-64, GCC 13.3.0, CMake 4.4.4 et **NVCC 13.4.92**.
 Les outils CUDA ont été installés pour compiler ; aucun périphérique NVIDIA
 utilisable n'est exposé dans cet environnement.
 
-| Contrôle | Résultat |
-|---|---|
-| Configuration et compilation CPU Release | Réussies |
-| Configuration et compilation CUDA Release | Réussies avec NVCC 13.4.92, cible `89`, cuBLAS désactivé |
-| CTest, build CPU | 27 suites exécutées avec succès, trois suites matérielles ignorées |
-| CTest, build CUDA | Même résultat : les suites de calcul matériel détectent l'absence de GPU |
-| Cas de test exécutés | **113 réussis**, dont neuf nouveaux cas sur backend CUDA simulé |
-| Headers publics autonomes | 23 headers compilés indépendamment sous GCC |
-| ASan/UBSan | Suites CPU et simulées réussies avec détection des fuites désactivée |
-| Vérificateur GCC direct | Tests et exemples réussis, y compris le nouveau test simulé |
-| MNIST réel, mode CPU | Smoke test réussi depuis les builds CPU et CUDA |
-| Exécution des nouveaux kernels sur carte NVIDIA | **Non réalisée ici** |
-| Compute Sanitizer GPU, vitesse et consommation VRAM réelle | **Non mesurés ici** |
-| Windows/MSVC et cuBLAS activé | Non validés ici |
+| Contrôle                                                   | Résultat                                                                 |
+|------------------------------------------------------------|--------------------------------------------------------------------------|
+| Configuration et compilation CPU Release                   | Réussies                                                                 |
+| Configuration et compilation CUDA Release                  | Réussies avec NVCC 13.4.92, cible `89`, cuBLAS désactivé                 |
+| CTest, build CPU                                           | 27 suites exécutées avec succès, trois suites matérielles ignorées       |
+| CTest, build CUDA                                          | Même résultat : les suites de calcul matériel détectent l'absence de GPU |
+| Cas de test exécutés                                       | **113 réussis**, dont neuf nouveaux cas sur backend CUDA simulé          |
+| Headers publics autonomes                                  | 23 headers compilés indépendamment sous GCC                              |
+| ASan/UBSan                                                 | Suites CPU et simulées réussies avec détection des fuites désactivée     |
+| Vérificateur GCC direct                                    | Tests et exemples réussis, y compris le nouveau test simulé              |
+| MNIST réel, mode CPU                                       | Smoke test réussi depuis les builds CPU et CUDA                          |
+| Exécution des nouveaux kernels sur carte NVIDIA            | **Non réalisée ici**                                                     |
+| Compute Sanitizer GPU, vitesse et consommation VRAM réelle | **Non mesurés ici**                                                      |
+| Windows/MSVC et cuBLAS activé                              | Non validés ici                                                          |
 
 LeakSanitizer nécessite des accès aux processus que cet environnement ne permet
 pas correctement. `ASAN_OPTIONS=detect_leaks=0` a été utilisé : aucune absence de

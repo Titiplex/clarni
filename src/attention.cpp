@@ -13,10 +13,10 @@ namespace ml::nn
         using nd::Vector;
 
         std::vector<NamedParameter>
-        collect(const std::vector<std::pair<std::string, const Module *>> &children)
+        collect(const std::vector<std::pair<std::string, const Module*>>& children)
         {
             std::vector<NamedParameter> out;
-            for (auto &[prefix, module] : children)
+            for (auto& [prefix, module] : children)
                 for (auto p : module->named_parameters())
                 {
                     p.name = prefix + p.name;
@@ -25,7 +25,7 @@ namespace ml::nn
             return out;
         }
 
-        Array mask_queries(const Array &a, const std::vector<int> &lengths)
+        Array mask_queries(const Array& a, const std::vector<int>& lengths)
         {
             Vector mask(static_cast<std::size_t>(a.shape()[0]) * a.shape()[1]);
             for (int b = 0; b < a.shape()[0]; ++b)
@@ -34,7 +34,7 @@ namespace ml::nn
             return nd::multiply(a, Array::from({a.shape()[0], a.shape()[1], 1}, mask));
         }
 
-        Array masked_softmax(const Array &a, const std::vector<bool> &mask)
+        Array masked_softmax(const Array& a, const std::vector<bool>& mask)
         {
             if (a.backend() != Backend::CPU)
                 throw std::invalid_argument(
@@ -70,27 +70,31 @@ namespace ml::nn
                     y[static_cast<std::size_t>(i) * cols + j] /= total;
             }
             return nd::operation(a.shape(), y,
-                                 {{a, [y, rows, cols](const Vector &g)
-                                   {
-                                       Vector r(g.size(), 0);
-                                       for (int i = 0; i < rows; ++i)
-                                       {
-                                           double dot = 0;
-                                           for (int j = 0; j < cols; ++j)
-                                           {
-                                               const auto k =
-                                                   static_cast<std::size_t>(i) * cols + j;
-                                               dot += g[k] * y[k];
-                                           }
-                                           for (int j = 0; j < cols; ++j)
-                                           {
-                                               const auto k =
-                                                   static_cast<std::size_t>(i) * cols + j;
-                                               r[k] = y[k] * (g[k] - dot);
-                                           }
-                                       }
-                                       return r;
-                                   }}});
+                                 {
+                                     {
+                                         a, [y, rows, cols](const Vector& g)
+                                         {
+                                             Vector r(g.size(), 0);
+                                             for (int i = 0; i < rows; ++i)
+                                             {
+                                                 double dot = 0;
+                                                 for (int j = 0; j < cols; ++j)
+                                                 {
+                                                     const auto k =
+                                                         static_cast<std::size_t>(i) * cols + j;
+                                                     dot += g[k] * y[k];
+                                                 }
+                                                 for (int j = 0; j < cols; ++j)
+                                                 {
+                                                     const auto k =
+                                                         static_cast<std::size_t>(i) * cols + j;
+                                                     r[k] = y[k] * (g[k] - dot);
+                                                 }
+                                             }
+                                             return r;
+                                         }
+                                     }
+                                 });
         }
     } // namespace
     LayerNorm::LayerNorm(int features, const double epsilon)
@@ -103,7 +107,7 @@ namespace ml::nn
         bias = std::make_shared<Parameter>(Array({features}));
     }
 
-    Array LayerNorm::forward(const Array &a)
+    Array LayerNorm::forward(const Array& a)
     {
         if (a.backend() != Backend::CPU)
             throw std::invalid_argument(
@@ -128,28 +132,32 @@ namespace ml::nn
         }
         const auto normalized = nd::operation(
             a.shape(), y,
-            {{a, [y, inverses, d](const Vector &g)
-              {
-                  Vector result(g.size());
-                  for (std::size_t row = 0; row < inverses.size(); ++row)
-                  {
-                      double sum = 0, dot = 0;
-                      for (int j = 0; j < d; ++j)
-                      {
-                          sum += g[row * d + j];
-                          dot += g[row * d + j] * y[row * d + j];
-                      }
-                      for (int j = 0; j < d; ++j)
-                          result[row * d + j] =
-                              inverses[row] * (g[row * d + j] - (sum + y[row * d + j] * dot) / d);
-                  }
-                  return result;
-              }}});
+            {
+                {
+                    a, [y, inverses, d](const Vector& g)
+                    {
+                        Vector result(g.size());
+                        for (std::size_t row = 0; row < inverses.size(); ++row)
+                        {
+                            double sum = 0, dot = 0;
+                            for (int j = 0; j < d; ++j)
+                            {
+                                sum += g[row * d + j];
+                                dot += g[row * d + j] * y[row * d + j];
+                            }
+                            for (int j = 0; j < d; ++j)
+                                result[row * d + j] =
+                                    inverses[row] * (g[row * d + j] - (sum + y[row * d + j] * dot) / d);
+                        }
+                        return result;
+                    }
+                }
+            });
         return nd::add(nd::multiply(normalized, weight->value()), bias->value());
     }
 
-    Array scaled_dot_product_attention(const Array &q, const Array &k, const Array &v,
-                                       const std::vector<bool> &allowed)
+    Array scaled_dot_product_attention(const Array& q, const Array& k, const Array& v,
+                                       const std::vector<bool>& allowed)
     {
         if (q.shape().size() != 2 || k.shape().size() != 2 || v.shape().size() != 2 ||
             q.shape()[1] != k.shape()[1] || k.shape()[0] != v.shape()[0])
@@ -170,22 +178,24 @@ namespace ml::nn
             throw std::invalid_argument("Attention heads must divide features");
     }
 
-    Array MultiHeadSelfAttention::attend(const Array &a, const std::vector<int> &lengths,
+    Array MultiHeadSelfAttention::attend(const Array& a, const std::vector<int>& lengths,
                                          const bool causal)
     {
         const auto valid = detail::sequence_lengths(a, features_, lengths);
         const int batch = a.shape()[0], time = a.shape()[1], dimension = features_ / heads_;
-        auto split = [&](const Array &x)
-        { return nd::permute(nd::reshape(x, {batch, time, heads_, dimension}), {0, 2, 1, 3}); };
+        auto split = [&](const Array& x)
+        {
+            return nd::permute(nd::reshape(x, {batch, time, heads_, dimension}), {0, 2, 1, 3});
+        };
         auto q = split(query.forward(a)), k = split(key.forward(a)), v = split(value.forward(a));
         auto scores = nd::scale(nd::batched_matmul(q, nd::permute(k, {0, 1, 3, 2})),
-                                1 / std::sqrt(double(dimension)));
+                                1 / std::sqrt(static_cast<double>(dimension)));
         std::vector<bool> allowed(scores.size(), false);
         for (int b = 0; b < batch; ++b)
             for (int head = 0; head < heads_; ++head)
                 for (int i = 0; i < time; ++i)
                     for (int j = 0; j < time; ++j)
-                        allowed[((std::size_t(b) * heads_ + head) * time + i) * time + j] =
+                        allowed[((static_cast<std::size_t>(b) * heads_ + head) * time + i) * time + j] =
                             i < valid[b] && j < valid[b] && (!causal || j <= i);
         auto probabilities =
             nd::reshape(masked_softmax(nd::reshape(scores, {batch * heads_ * time, time}), allowed),
@@ -216,7 +226,7 @@ namespace ml::nn
         nd::numel({features, max_length});
     }
 
-    Array SinusoidalPosition::add(const Array &a, const int start)
+    Array SinusoidalPosition::add(const Array& a, const int start)
     {
         if (a.shape().size() != 3 || a.shape()[2] != features_ || start < 0 ||
             a.shape()[1] > max_length_ || start > max_length_ - a.shape()[1])
@@ -240,7 +250,7 @@ namespace ml::nn
     {
     }
 
-    Array TransformerBlock::run(const Array &a, const std::vector<int> &lengths, const bool causal)
+    Array TransformerBlock::run(const Array& a, const std::vector<int>& lengths, const bool causal)
     {
         const auto valid = detail::sequence_lengths(a, features_, lengths);
         const auto x = nd::add(a, attention.attend(norm1.forward(a), valid, causal));
@@ -251,11 +261,13 @@ namespace ml::nn
 
     std::vector<NamedParameter> TransformerBlock::named_parameters() const
     {
-        return collect({{"norm1.", &norm1},
-                        {"norm2.", &norm2},
-                        {"attention.", &attention},
-                        {"expand.", &expand},
-                        {"contract.", &contract}});
+        return collect({
+            {"norm1.", &norm1},
+            {"norm2.", &norm2},
+            {"attention.", &attention},
+            {"expand.", &expand},
+            {"contract.", &contract}
+        });
     }
 
     void TransformerBlock::train(const bool enabled)
@@ -277,7 +289,7 @@ namespace ml::nn
     {
     }
 
-    Array TransformerLM::logits(const TokenBatch &batch, const std::vector<int> &lengths)
+    Array TransformerLM::logits(const TokenBatch& batch, const std::vector<int>& lengths)
     {
         if (batch.shape.size() != 2)
             throw std::invalid_argument("TransformerLM IDs must be [B,T]");

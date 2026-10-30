@@ -10,11 +10,11 @@ namespace ml::training
     {
         class ModeGuard
         {
-            nn::Module &model_;
+            nn::Module& model_;
             bool previous_;
 
-          public:
-            ModeGuard(nn::Module &model, bool mode) : model_(model), previous_(model.training())
+        public:
+            ModeGuard(nn::Module& model, const bool mode) : model_(model), previous_(model.training())
             {
                 model_.train(mode);
             }
@@ -27,11 +27,11 @@ namespace ml::training
 
         class LoaderGuard
         {
-            data::DataLoader &loader_;
+            data::DataLoader& loader_;
             data::LoaderState previous_;
 
-          public:
-            explicit LoaderGuard(data::DataLoader &loader)
+        public:
+            explicit LoaderGuard(data::DataLoader& loader)
                 : loader_(loader), previous_(loader.state())
             {
             }
@@ -42,7 +42,7 @@ namespace ml::training
             }
         };
 
-        void validate_evaluation(const data::DataLoader &loader)
+        void validate_evaluation(const data::DataLoader& loader)
         {
             if (loader.options().shuffle || loader.options().drop_last)
                 throw std::invalid_argument(
@@ -51,7 +51,7 @@ namespace ml::training
                 throw std::invalid_argument("Empty evaluation dataset");
         }
     } // namespace
-    ClassificationMetrics::ClassificationMetrics(const int classes, int ignore_index)
+    ClassificationMetrics::ClassificationMetrics(const int classes, const int ignore_index)
         : classes_(classes), ignore_(ignore_index)
     {
         if (classes <= 0)
@@ -61,14 +61,14 @@ namespace ml::training
         fn_.assign(classes, 0);
     }
 
-    void ClassificationMetrics::add(const nd::Array &logits, const std::vector<int> &targets,
+    void ClassificationMetrics::add(const nd::Array& logits, const std::vector<int>& targets,
                                     const double mean_loss)
     {
         if (logits.shape().empty() || logits.shape().back() != classes_ ||
             logits.size() / classes_ != targets.size() || !std::isfinite(mean_loss) ||
             mean_loss < 0)
             throw std::invalid_argument("Invalid metric logits/targets/loss");
-        const auto &tensor = logits.variable().value();
+        const auto& tensor = logits.variable().value();
         std::vector<double> prediction_values;
         std::span<const double> host;
         if (logits.backend() == Backend::CPU)
@@ -142,8 +142,8 @@ namespace ml::training
         return m;
     }
 
-    Metrics SupervisedTrainer::evaluate(data::DataLoader &loader, const Forward &forward,
-                                        const int classes, int ignore_index) const
+    Metrics SupervisedTrainer::evaluate(data::DataLoader& loader, const Forward& forward,
+                                        const int classes, const int ignore_index) const
     {
         if (!forward)
             throw std::invalid_argument("Missing forward callback");
@@ -164,8 +164,8 @@ namespace ml::training
         return metrics.result();
     }
 
-    FitResult SupervisedTrainer::fit(data::DataLoader &training, data::DataLoader &validation,
-                                     const Forward &forward, const FitOptions &options)
+    FitResult SupervisedTrainer::fit(data::DataLoader& training, data::DataLoader& validation,
+                                     const Forward& forward, const FitOptions& options)
     {
         if (!ad::grad_enabled())
             throw std::logic_error("fit cannot run inside NoGradGuard");
@@ -204,7 +204,8 @@ namespace ml::training
             }
             EpochResult record{
                 epoch + 1, rate, metrics.result(),
-                evaluate(validation, forward, options.classes, options.ignore_index)};
+                evaluate(validation, forward, options.classes, options.ignore_index)
+            };
             result.history.push_back(record);
             // Track the actual lowest validation loss; min_delta controls patience only.
             if (record.validation.loss < best)
@@ -214,7 +215,7 @@ namespace ml::training
                 if (options.restore_best)
                 {
                     best_values.clear();
-                    for (auto &p : params)
+                    for (auto& p : params)
                         best_values.push_back(p.parameter->value().detach());
                     best_optimizer = trainer_.optimizer().states();
                     best_loader = training.state();
@@ -247,7 +248,7 @@ namespace ml::training
 
     std::function<double(std::size_t)> cosine_schedule(const double rate, const double min_rate,
                                                        const std::size_t epochs,
-                                                       std::size_t warmup_epochs)
+                                                       const std::size_t warmup_epochs)
     {
         if (!std::isfinite(rate) || !std::isfinite(min_rate) || rate <= 0 || min_rate <= 0 ||
             min_rate > rate || !epochs || warmup_epochs >= epochs)
@@ -259,9 +260,10 @@ namespace ml::training
             if (epoch < warmup_epochs)
                 return rate * static_cast<double>(epoch + 1) / static_cast<double>(warmup_epochs);
             const auto remaining = epochs - warmup_epochs;
-            const double progress = remaining == 1 ? 0.0
-                                                   : static_cast<double>(epoch - warmup_epochs) /
-                                                         static_cast<double>(remaining - 1);
+            const double progress = remaining == 1
+                                        ? 0.0
+                                        : static_cast<double>(epoch - warmup_epochs) /
+                                        static_cast<double>(remaining - 1);
             return min_rate + (rate - min_rate) * .5 * (1 + std::cos(std::numbers::pi * progress));
         };
     }
